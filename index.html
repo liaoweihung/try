@@ -31,26 +31,25 @@
   <h2>📋 藥局盤點系統</h2>
 
   <!-- 步驟一：設定區塊 -->
+ <!-- 步驟一：設定區塊 -->
   <div id="setup-section" class="card">
-    <label for="desk">選擇調劑檯：</label>
-    <select id="desk">
-      <option value="" disabled selected>請選擇...</option>
-      <option value="A檯">A檯</option>
-      <option value="B檯">B檯</option>
-      <option value="C檯">C檯</option>
+    <label for="main-area">1. 選擇大區：</label>
+    <select id="main-area" onchange="updateSubArea()">
+      <option value="" disabled selected>請先選擇大區...</option>
+      <option value="門診">門診</option>
+      <option value="門診庫">門診庫</option>
+      <option value="B1庫">B1庫</option>
+      <option value="中山">中山</option>
     </select>
 
-    <label for="location">選擇藥位編號：</label>
-    <!-- 實務上這裡可以改成輸入框，或者更多的下拉選項 -->
-    <select id="location">
-      <option value="" disabled selected>請選擇...</option>
-      <option value="A1">A1</option>
-      <option value="A2">A2</option>
+    <label for="sub-area">2. 選擇細部位置：</label>
+    <select id="sub-area">
+      <option value="" disabled selected>請先選擇上方的大區</option>
     </select>
 
-    <button onclick="startInventory()">開始盤點此位置</button>
+    <!-- 保留盤點人的欄位(若需要)，這裡將送出按鈕綁定新邏輯 -->
+    <button onclick="startInventory()" style="margin-top: 15px;">開始盤點此位置</button>
   </div>
-
   <!-- 步驟二：盤點輸入區塊 -->
   <div id="inventory-section" class="card hidden">
     <div id="current-info" style="margin-bottom: 15px; font-weight: bold; color: #e67e22;"></div>
@@ -66,6 +65,75 @@
     // ⚠️ 這裡請替換成您剛剛在 GAS 部署得到的 Web App URL！
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
 
+// 定義大區與細部位置的對應關係
+    const areaMapping = {
+      "門診": ["調劑檯1", "調劑檯2", "調劑檯3", "水藥檯", "專案區", "點滴區", "冰箱", "ADC", "管藥區", "藥包機"],
+      "門診庫": ["全部品項"], // 若門診庫沒有細分，就給一個預設值
+      "B1庫": ["全部品項"],
+      "中山": ["全部品項"]
+    };
+
+    // 當大區改變時，自動更新細部位置的下拉選單
+    function updateSubArea() {
+      const mainArea = document.getElementById("main-area").value;
+      const subAreaSelect = document.getElementById("sub-area");
+
+      // 清空舊的選項
+      subAreaSelect.innerHTML = '<option value="" disabled selected>請選擇細部位置...</option>';
+
+      // 根據選擇的大區，生成對應的細部位置
+      if (areaMapping[mainArea]) {
+        areaMapping[mainArea].forEach(sub => {
+          const opt = document.createElement("option");
+          opt.value = sub;
+          opt.innerHTML = sub;
+          subAreaSelect.appendChild(opt);
+        });
+      }
+    }
+
+    // 修改：開始盤點時的邏輯
+    function startInventory() {
+      const mainArea = document.getElementById("main-area").value;
+      const subArea = document.getElementById("sub-area").value;
+
+      if (!mainArea || !subArea) {
+        alert("請完整選擇「大區」與「細部位置」！");
+        return;
+      }
+
+      // 顯示目前盤點資訊
+      document.getElementById("current-info").innerText = `目前盤點：${mainArea} - ${subArea}`;
+      
+      const listDiv = document.getElementById("drug-list");
+      listDiv.innerHTML = ""; 
+      
+      // 💡 這裡的邏輯是：如果細區選了「全部品項」，我們就直接抓大區的藥（例如"B1庫"）；否則就抓細區的藥（例如"水藥檯"）
+      const targetLocation = (subArea === "全部品項") ? mainArea : subArea;
+      
+      const drugs = drugDatabase[targetLocation] || [];
+      
+      if(drugs.length === 0) {
+        listDiv.innerHTML = `<p style="color:red;">此位置 (${targetLocation}) 尚未設定藥品或名稱不符，請確認 Excel 資料。</p>`;
+      } else {
+        // ... (這裡保留您原本生成 drug-item 輸入框的 forEach 程式碼) ...
+        drugs.forEach(drug => {
+          const html = `
+            <div class="drug-item">
+              <div class="drug-name">${drug.name}</div>
+              <div class="drug-code">代碼：${drug.code}</div>
+              <input type="number" data-code="${drug.code}" data-name="${drug.name}" placeholder="請輸入數量" inputmode="numeric" pattern="[0-9]*" min="0">
+            </div>
+          `;
+          listDiv.innerHTML += html;
+        });
+      }
+
+      // 切換畫面
+      document.getElementById("setup-section").classList.add("hidden");
+      document.getElementById("inventory-section").classList.remove("hidden");
+    }
+    
     // 將藥局現有品項按照「位置」分門別類整理好
 // 未來若有異動，只需修改這個區塊即可
 const drugDatabase = {
