@@ -371,8 +371,7 @@
       document.getElementById("history-section").classList.add("hidden"); // 盤點時隱藏歷史
       document.getElementById("inventory-section").classList.remove("hidden");
     }
-
-  function submitData() {
+function submitData() {
       const mainArea = document.getElementById("main-area").value;
       const subArea = document.getElementById("sub-area").value;
       const deskString = mainArea + "-" + subArea;
@@ -391,7 +390,7 @@
         
         // 💡 2. 根據模式決定要不要把資料加進包裹裡
         if (isRecount) {
-          // 【單藥覆盤】：只有「真的有輸入數字」的藥品，才加進去送出！
+          // 【單藥覆盤】：只有「真的有輸入數字」的藥品，才加進去送出
           if (qty !== "") {
             itemsToSubmit.push({
               drugCode: input.getAttribute("data-code"),
@@ -409,7 +408,7 @@
         }
       });
 
-      // 💡 3. 貼心防呆提示
+      // 💡 3. 防呆提示
       if (isRecount && itemsToSubmit.length === 0) {
         alert("⚠️ 覆盤模式下，請至少輸入一個要修改的藥品數量！");
         return;
@@ -421,7 +420,6 @@
         }
       }
 
-      // 💡 4. 打包準備送給 GAS 的資料 (加入 mode 參數)
       const payload = {
         desk: deskString,
         location: loc,
@@ -429,13 +427,11 @@
         mode: isRecount ? "partial" : "full" 
       };
 
-      // 更改按鈕狀態，避免重複點擊
       const btn = document.querySelector("button[onclick='submitData()']");
       const originalText = btn.innerText;
       btn.innerText = "資料傳送中...";
       btn.disabled = true;
 
-      // 發送給 Google Apps Script
       fetch(GAS_URL, {
         method: "POST",
         body: JSON.stringify(payload)
@@ -445,39 +441,62 @@
         if (data.status === "success") {
           alert("✅ 送出成功！");
 
-          // 1. 取消覆盤模式的打勾
-          document.getElementById('recount-mode').checked = false; 
+          // --- 💡 關鍵修復：更新本機歷史紀錄 ---
+          const now = new Date();
+          const timeString = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+          let existingIndex = localHistory.findIndex(h => h.desk === deskString && h.loc === loc);
           
-          // 2. 清空藥品清單
-          document.getElementById('drug-list').innerHTML = ''; 
-          
-          // 3. 💡 關鍵修復：自動觸發「返回重選」的動作，讓畫面切換回掃描區
-          if (typeof goBack === "function") {
-            goBack(); 
+          if (isRecount && existingIndex !== -1) {
+            // 覆盤模式：找出舊紀錄，只替換這次有修改的藥品數量
+            itemsToSubmit.forEach(newItem => {
+              let itemIndex = localHistory[existingIndex].items.findIndex(i => i.drugCode === newItem.drugCode);
+              if (itemIndex !== -1) {
+                localHistory[existingIndex].items[itemIndex].qty = newItem.qty;
+              } else {
+                localHistory[existingIndex].items.push(newItem);
+              }
+            });
+            localHistory[existingIndex].time = timeString;
+            // 把更新過的紀錄拉到最上面
+            let updatedRecord = localHistory.splice(existingIndex, 1)[0];
+            localHistory.unshift(updatedRecord);
+          } else {
+            // 初盤模式：整櫃覆蓋，存入新紀錄
+            if (existingIndex !== -1) {
+              localHistory.splice(existingIndex, 1);
+            }
+            localHistory.unshift({
+              time: timeString,
+              desk: deskString,
+              loc: loc,
+              items: itemsToSubmit
+            });
           }
           
-          // 4. 貼心小優化：清空櫃位並讓游標自動對焦，方便人員直接拿條碼槍掃下一個抽屜
-          setTimeout(() => {
-            const cabInput = document.getElementById('cabinet');
-            if (cabInput) {
-              cabInput.value = '';
-              cabInput.focus();
-            }
-          }, 100);
+          localStorage.setItem("inventoryHistory", JSON.stringify(localHistory));
+          renderHistory();   // 刷新下方的歷史紀錄畫面
+          updateCabinet();   // 讓選單出現 ✅ (已盤) 的勾勾
+          // ------------------------------------
+
+          document.getElementById('recount-mode').checked = false; 
+          document.getElementById('drug-list').innerHTML = ''; 
+          
+          // --- 💡 關鍵修復：呼叫正確的返回函數 ---
+          backToSetup(); 
+          
         } else {
           alert("❌ 送出失敗：" + data.message);
         }
       })
-      // 👇 就是漏掉下面這兩段 👇
       .catch(error => {
         alert("❌ 網路錯誤，請檢查連線後重試！");
       })
       .finally(() => {
-        // 不論成功或失敗，最後一定要把按鈕變回原本的樣子
         btn.innerText = originalText;
         btn.disabled = false;
       });
     }
+  
     function backToSetup() {
       document.getElementById("setup-section").classList.remove("hidden");
       document.getElementById("history-section").classList.remove("hidden");
