@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>測試版</title>
+</head>
+<body>
+
+  <h2>📋 藥局盤點系統 (測試版)</h2>
+  
+  <label>1. 大區：</label>
+  <select id="main-area" onchange="updateSubArea()">
+    <option value="" disabled selected>請選擇大區...</option>
+  </select><br><br>
+
+  <label id="sub-area-label">2. 小區：</label>
+  <select id="sub-area" onchange="updateCabinet()">
+    <option value="" disabled selected>請選擇小區</option>
+  </select><br><br>
+
+  <label id="cabinet-label">3. 櫃位：</label>
+  <select id="cabinet">
+    <option value="" disabled selected>請選擇櫃位</option>
+  </select>
+
+  <script>
+    // 您剛剛貼給我的 3 筆資料，注意最後面的 ]; 絕對不能少！
+    const rawExcelData = [ 
+      ["5001", "克菸貼片", "Nicotinell TTS", "Nicotine", "水A4", "水藥檯", "", "門診", ""],
+      ["A001", "納霍利膜衣錠", "Notholic", "Naltrexone HCl", "點滴3", "點滴區", "", "門診", ""],
+      ["A002", "芙琳亞錠", "Folina", "Calcium Folinate", "G32", "調劑檯", "", "門診", ""]
+    ];
+
+    const db = {};
+
+    window.onload = function() {
+      rawExcelData.forEach(row => {
+        const code = row[0];
+        const name = row[1] + " (" + row[2] + ")";
+        const rawCabinet = String(row[4] || "").trim();
+        const rawSubAreas = [row[5], row[6]].map(s => String(s || "").trim()).filter(s => s !== "");
+        const rawMainAreas = [row[7], row[8]].map(s => String(s || "").trim()).filter(s => s !== "");
+
+        rawMainAreas.forEach(mainArea => {
+          if (!db[mainArea]) db[mainArea] = {};
+          if (mainArea === "中山") {
+             if (!db[mainArea]["中山藥局"]) db[mainArea]["中山藥局"] = {};
+             if (!db[mainArea]["中山藥局"]["全部品項"]) db[mainArea]["中山藥局"]["全部品項"] = [];
+             db[mainArea]["中山藥局"]["全部品項"].push({ code: code, name: name });
+          } else {
+             let subAreas = rawSubAreas.length > 0 ? rawSubAreas : ["未分類"];
+             subAreas.forEach(sub => {
+                let expandedSubs = [sub];
+                if (sub === "調劑檯") expandedSubs = ["調劑檯1", "調劑檯2", "調劑檯3"];
+                expandedSubs.forEach(finalSub => {
+                   let finalCabinet = rawCabinet;
+                   if (finalSub.includes("庫") || !finalCabinet) finalCabinet = "全部品項";
+                   if (!db[mainArea][finalSub]) db[mainArea][finalSub] = {};
+                   if (!db[mainArea][finalSub][finalCabinet]) db[mainArea][finalSub][finalCabinet] = [];
+                   db[mainArea][finalSub][finalCabinet].push({ code: code, name: name });
+                });
+             });
+          }
+        });
+      });
+
+      const mainSelect = document.getElementById("main-area");
+      Object.keys(db).forEach(area => {
+         const opt = document.createElement("option");
+         opt.value = area;
+         opt.innerText = area;
+         mainSelect.appendChild(opt);
+      });
+    };
+
+    function updateSubArea() {
+      const mainArea = document.getElementById("main-area").value;
+      const subSelect = document.getElementById("sub-area");
+      const cabSelect = document.getElementById("cabinet");
+      subSelect.innerHTML = '<option value="" disabled selected>請選擇小區...</option>';
+      cabSelect.innerHTML = '<option value="" disabled selected>請選擇櫃位</option>';
+      if (db[mainArea]) {
+        Object.keys(db[mainArea]).sort().forEach(sub => {
+          const opt = document.createElement("option");
+          opt.value = sub;
+          opt.innerText = sub;
+          subSelect.appendChild(opt);
+        });
+      }
+    }
+
+    function updateCabinet() {
+      const mainArea = document.getElementById("main-area").value;
+      const subArea = document.getElementById("sub-area").value;
+      const cabSelect = document.getElementById("cabinet");
+      cabSelect.innerHTML = '<option value="" disabled selected>請選擇櫃位...</option>';
+      if (db[mainArea] && db[mainArea][subArea]) {
+        Object.keys(db[mainArea][subArea]).sort().forEach(cab => {
+          const opt = document.createElement("option");
+          opt.value = cab;
+          opt.innerText = cab;
+          cabSelect.appendChild(opt);
+        });
+      }
+    }
+  </script>
+</body>
+</html>
