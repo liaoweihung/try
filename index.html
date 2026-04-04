@@ -466,13 +466,7 @@
           alert("❌ 送出失敗：" + data.message);
         }
       })
-      .catch(error => {
-        alert("❌ 網路錯誤，請檢查連線後重試！");
-      })
-      .finally(() => {
-        btn.innerText = originalText;
-        btn.disabled = false;
-      });
+     
     }
 
     function backToSetup() {
