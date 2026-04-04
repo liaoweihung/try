@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>藥局盤點即時報表</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; margin: 0; padding: 15px; color: #333; }
+    .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    h2 { text-align: center; color: #2c3e50; margin-top: 10px; }
+    label { font-weight: bold; margin-bottom: 5px; display: block; color: #7f8c8d; }
+    select, input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+    .btn-refresh { background-color: #3498db; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; margin-bottom: 15px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+    th { background-color: #f8f9fa; color: #2c3e50; font-weight: bold; border: 1px solid #eee; padding: 10px; text-align: left; position: sticky; top: 0; }
+    td { border: 1px solid #eee; padding: 10px; font-size: 14px; }
+    .qty-cell { text-align: center; font-weight: bold; color: #e67e22; font-size: 16px; }
+    .drug-info { font-size: 12px; color: #7f8c8d; }
+    .hidden { display: none; }
+    .summary-badge { display: inline-block; padding: 4px 8px; background: #e8f4fd; color: #2980b9; border-radius: 4px; font-size: 12px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+  <h2>📊 盤點彙整報表</h2>
+
+  <div class="card">
+    <button class="btn-refresh" onclick="fetchData()">🔄 更新雲端數據</button>
+
+    <label>1. 選擇報表類型：</label>
+    <select id="report-type" onchange="toggleFilters()">
+      <option value="single">個別小區報表 (大區-小區)</option>
+      <option value="main1">大區 1 總合 (門診全區)</option>
+      <option value="main2">大區 2 總合 (中山全區)</option>
+      <option value="total">全院總數總合 (Total)</option>
+    </select>
+
+    <!-- 個別小區專用的下拉選單 -->
+    <div id="filter-group">
+      <label>2. 選擇具體位置：</label>
+      <select id="sub-area-select" onchange="renderTable()"></select>
+    </div>
+
+    <label>3. 搜尋藥品：</label>
+    <input type="text" id="search-box" placeholder="輸入藥名或代碼..." oninput="renderTable()">
+  </div>
+
+  <div class="card">
+    <div id="status-tag" class="summary-badge">準備就緒</div>
+    <div id="report-container">
+      <p style="text-align:center; color:#999;">請點擊「更新數據」開始</p>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ 請填入您的 GAS 部署網址
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
+    
+    let rawData = []; // 存儲從 GAS 抓回來的總表 JSON
+
+    async function fetchData() {
+      const btn = document.querySelector('.btn-refresh');
+      btn.innerText = "正在連線中...";
+      btn.disabled = true;
+      document.getElementById('status-tag').innerText = "正在抓取最新資料...";
+
+      try {
+        const response = await fetch(GAS_URL);
+        rawData = await response.json();
+        
+        // 自動初始化「小區」下拉選單 (排除非區域欄位)
+        const subSelect = document.getElementById('sub-area-select');
+        subSelect.innerHTML = "";
+        const excludeKeys = ["院內碼", "藥品名稱", "總計加總"];
+        const areas = Object.keys(rawData[0]).filter(k => !excludeKeys.includes(k));
+        
+        areas.forEach(area => {
+          const opt = document.createElement('option');
+          opt.value = area;
+          opt.innerText = area;
+          subSelect.appendChild(opt);
+        });
+
+        document.getElementById('status-tag').innerText = "數據已同步 (共 " + rawData.length + " 筆)";
+        renderTable();
+      } catch (err) {
+        alert("抓取失敗，請確認 GAS 是否部署為「所有人」皆可存取。");
+      } finally {
+        btn.innerText = "🔄 更新雲端數據";
+        btn.disabled = false;
+      }
+    }
+
+    function toggleFilters() {
+      const type = document.getElementById('report-type').value;
+      const group = document.getElementById('filter-group');
+      group.className = (type === 'single') ? '' : 'hidden';
+      renderTable();
+    }
+
+    function renderTable() {
+      if (rawData.length === 0) return;
+
+      const type = document.getElementById('report-type').value;
+      const subArea = document.getElementById('sub-area-select').value;
+      const keyword = document.getElementById('search-box').value.toLowerCase();
+      const container = document.getElementById('report-container');
+
+      // 決定要計算哪些欄位
+      let html = `<table><tr><th>藥品資訊</th><th style="width:80px; text-align:center;">數量</th></tr>`;
+      
+      let displayCount = 0;
+
+      rawData.forEach(item => {
+        let displayQty = 0;
+
+        if (type === 'single') {
+          displayQty = item[subArea] || 0;
+        } else if (type === 'main1') {
+          // 加總所有包含「門診」字樣的欄位
+          Object.keys(item).forEach(key => {
+            if (key.includes("門診")) displayQty += (item[key] || 0);
+          });
+        } else if (type === 'main2') {
+          // 加總所有包含「中山」字樣的欄位
+          Object.keys(item).forEach(key => {
+            if (key.includes("中山")) displayQty += (item[key] || 0);
+          });
+        } else if (type === 'total') {
+          displayQty = item["總計加總"] || 0;
+        }
+
+        // 搜尋過濾 & 只顯示數量大於 0 的
+        const matchSearch = item["藥品名稱"].toLowerCase().includes(keyword) || item["院內碼"].toLowerCase().includes(keyword);
+        
+        if (displayQty > 0 && matchSearch) {
+          displayCount++;
+          html += `
+            <tr>
+              <td>
+                <strong>${item["藥品名稱"]}</strong><br>
+                <span class="drug-info">代碼: ${item["院內碼"]}</span>
+              </td>
+              <td class="qty-cell">${displayQty}</td>
+            </tr>
+          `;
+        }
+      });
+
+      html += `</table>`;
+      container.innerHTML = displayCount > 0 ? html : "<p style='text-align:center; padding:20px; color:#999;'>查無符合條件的藥品數字</p>";
+    }
+  </script>
+</body>
+</html>
