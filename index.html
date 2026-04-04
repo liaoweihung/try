@@ -64,21 +64,29 @@
 
   <script>
     // ⚠️ 這裡請替換成您剛剛在 GAS 部署得到的 Web App URL！
-    const GAS_URL = "https://script.google.com/macros/s/您的金鑰/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
 
-    // 模擬藥局的「藥位與藥品對應」資料庫
-    const drugDatabase = {
-      "A1": [
-        { code: "A001", name: "普拿疼加強錠 (Panadol)" },
-        { code: "A002", name: "阿斯匹靈 (Aspirin)" },
-        { code: "A003", name: "胃乳片 (Gelfos)" }
-      ],
-      "A2": [
-        { code: "B001", name: "降血壓藥 (Amlodipine)" },
-        { code: "B002", name: "降血糖藥 (Metformin)" }
-      ]
-    };
+    // 將藥局現有品項按照「位置」分門別類整理好
+// 未來若有異動，只需修改這個區塊即可
+const drugDatabase = {
+  "A1": [
+    { code: "A001", name: "普拿疼加強錠 (Panadol)" },
+    { code: "A002", name: "阿斯匹靈微粒膠囊 (Bokey)" }, // 註：不可磨粉
+    { code: "A003", name: "胃乳片 (Gelfos)" }
+  ],
+  "A2": [
+    { code: "B001", name: "降血壓藥 (Amlodipine)" },
+    { code: "B002", name: "異位寧 (Visanne)" }
+  ],
+  "冰箱1": [
+    { code: "R001", name: "胰島素 (Novomix)" }
+  ]
+};
 
+// 取得該位置藥品清單的函式 (配合前面的介面邏輯)
+function getDrugsByLocation(loc) {
+  return drugDatabase[loc] || [];
+}
     // 切換到盤點畫面
     function startInventory() {
       const desk = document.getElementById("desk").value;
