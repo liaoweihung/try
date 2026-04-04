@@ -111,7 +111,6 @@
       group.className = (type === 'single') ? '' : 'hidden';
       renderTable();
     }
-
 function renderTable() {
       if (rawData.length === 0) return;
 
@@ -120,7 +119,6 @@ function renderTable() {
       const keyword = document.getElementById('search-box').value.toLowerCase();
       const container = document.getElementById('report-container');
 
-      // 設定新的五欄式表頭
       let html = `
         <table>
           <tr>
@@ -132,29 +130,32 @@ function renderTable() {
           </tr>`;
       
       let displayCount = 0;
-      const excludeKeys = ["院內碼", "藥品名稱", "總計加總"];
+      
+      // 💡 擴大排除名單，把所有非「區域」的欄位都塞進去
+      const excludeKeys = ["院內碼", "藥品代碼", "藥品名稱", "總計加總", "時間", "位置", "調劑檯", "備註"];
 
       rawData.forEach(item => {
-        const drugCode = item["院內碼"];
-        const drugName = item["藥品名稱"];
+        // 💡 智慧辨識代碼：適應「院內碼」或「藥品代碼」
+        const drugCode = item["院內碼"] || item["藥品代碼"] || "未知";
+        const drugName = item["藥品名稱"] || "未知藥名";
         
-        // 搜尋過濾：先檢查藥名或代碼是否符合搜尋關鍵字
         const matchSearch = drugName.toLowerCase().includes(keyword) || drugCode.toLowerCase().includes(keyword);
         if (!matchSearch) return;
 
-        // 遍歷這筆藥品的所有欄位 (找出有數字的小區)
         Object.keys(item).forEach(key => {
-          if (excludeKeys.includes(key)) return; // 跳過非數量的欄位
+          // 1. 如果是排除名單內的欄位，跳過
+          if (excludeKeys.includes(key)) return; 
+          
+          // 2. 如果該欄位的內容不是數字（例如是時間格式），跳過
+          const qty = parseFloat(item[key]);
+          if (isNaN(qty) || qty <= 0) return; 
 
-          const qty = item[key] || 0;
-          if (qty <= 0) return; // 數量為 0 的就不顯示
-
-          // 拆解標題 (門診-調劑檯1 -> 大區:門診, 小區:調劑檯1)
+          // 拆解標題 (門診-調劑檯1)
           let parts = key.split('-');
-          let grandArea = parts[0] || "";
+          let grandArea = parts[0] || "其他";
           let subArea = parts[1] || "全部品項";
 
-          // --- 根據選擇的報表類型進行過濾 ---
+          // --- 過濾邏輯 ---
           let shouldDisplay = false;
           if (type === 'single') {
             if (key === subAreaFilter) shouldDisplay = true;
@@ -163,17 +164,17 @@ function renderTable() {
           } else if (type === 'main2') {
             if (grandArea.includes("中山")) shouldDisplay = true;
           } else if (type === 'total') {
-            shouldDisplay = true; // 全部顯示
+            shouldDisplay = true;
           }
 
           if (shouldDisplay) {
             displayCount++;
             html += `
               <tr>
-                <td>${grandArea}</td>
+                <td><span class="summary-badge" style="margin:0">${grandArea}</span></td>
                 <td>${subArea}</td>
-                <td style="font-family: monospace;">${drugCode}</td>
-                <td>${drugName}</td>
+                <td style="font-family: monospace; color:#7f8c8d;">${drugCode}</td>
+                <td><strong>${drugName}</strong></td>
                 <td class="qty-cell">${qty}</td>
               </tr>
             `;
@@ -182,8 +183,9 @@ function renderTable() {
       });
 
       html += `</table>`;
-      container.innerHTML = displayCount > 0 ? html : "<p style='text-align:center; padding:20px; color:#999;'>查無符合條件的數據</p>";
+      container.innerHTML = displayCount > 0 ? html : "<p style='text-align:center; padding:20px; color:#999;'>📭 目前查無盤點數據</p>";
     }
+
   </script>
 </body>
 </html>
