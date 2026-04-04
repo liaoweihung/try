@@ -379,77 +379,85 @@
       const loc = document.getElementById("cabinet").value;
       const inputs = document.querySelectorAll("#drug-list input[type='number']");
       
+      // 💡 1. 取得「單藥覆盤模式」是否被勾選
+      const isRecount = document.getElementById('recount-mode').checked;
+
       let itemsToSubmit = [];
       let hasEmpty = false;
 
       inputs.forEach(input => {
         const qty = input.value;
         if (qty === "") hasEmpty = true; 
-        itemsToSubmit.push({
-          drugCode: input.getAttribute("data-code"),
-          drugName: input.getAttribute("data-name"),
-          qty: qty || 0 
-        });
+        
+        // 💡 2. 根據模式決定要不要把資料加進包裹裡
+        if (isRecount) {
+          // 【單藥覆盤】：只有「真的有輸入數字」的藥品，才加進去送出！
+          if (qty !== "") {
+            itemsToSubmit.push({
+              drugCode: input.getAttribute("data-code"),
+              drugName: input.getAttribute("data-name"),
+              qty: qty
+            });
+          }
+        } else {
+          // 【一般初盤】：全部都送出（如果遇到空白，自動當作 0 顆）
+          itemsToSubmit.push({
+            drugCode: input.getAttribute("data-code"),
+            drugName: input.getAttribute("data-name"),
+            qty: qty || 0 
+          });
+        }
       });
 
-      if (hasEmpty) {
-        if (!confirm("有藥品尚未輸入數量，將以 0 計算。確定要送出嗎？")) return;
+      // 💡 3. 貼心防呆提示
+      if (isRecount && itemsToSubmit.length === 0) {
+        alert("⚠️ 覆盤模式下，請至少輸入一個要修改的藥品數量！");
+        return;
       }
 
+      if (!isRecount && hasEmpty) {
+        if (!confirm("⚠️ 有部分藥品未填寫數量，系統將自動填入 0 送出，確定嗎？")) {
+          return;
+        }
+      }
+
+      // 💡 4. 打包準備送給 GAS 的資料 (加入 mode 參數)
       const payload = {
         desk: deskString,
         location: loc,
-        items: itemsToSubmit
+        items: itemsToSubmit,
+        mode: isRecount ? "partial" : "full" 
       };
 
-      const btn = document.getElementById("submit-btn");
+      // 更改按鈕狀態，避免重複點擊
+      const btn = document.querySelector("button[onclick='submitData()']");
+      const originalText = btn.innerText;
       btn.innerText = "資料傳送中...";
       btn.disabled = true;
 
+      // 發送給 Google Apps Script
       fetch(GAS_URL, {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload)
       })
       .then(response => response.json())
-      .then(result => {
-        if(result.status === "success") {
+      .then(data => {
+        if (data.status === "success") {
+          alert("✅ 送出成功！");
+          document.getElementById('cabinet').value = ''; // 清空櫃位欄位
+          document.getElementById('drug-list').innerHTML = ''; // 清空藥品清單
           
-          // 💡 寫入本機歷史紀錄
-          const now = new Date();
-          const timeString = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
-          
-          // 移除舊的同櫃位紀錄 (避免重複顯示)
-          localHistory = localHistory.filter(h => !(h.desk === deskString && h.loc === loc));
-          
-          // 把新紀錄加到陣列最前面
-          localHistory.unshift({
-            time: timeString,
-            desk: deskString,
-            loc: loc,
-            items: itemsToSubmit
-          });
-
-          // 最多保留 50 筆紀錄避免拖慢手機
-          if (localHistory.length > 50) localHistory.pop();
-          
-          // 存入手機 LocalStorage
-          localStorage.setItem("inventoryHistory", JSON.stringify(localHistory));
-          
-          // 更新畫面
-          renderHistory();
-          updateCabinet(); // 觸發下拉選單更新打勾勾
-          
-          alert("✅ 成功送出！請繼續下一個位置。");
-          backToSetup();
+          // 💡 成功後自動取消覆盤勾選，避免同事下一櫃忘記關掉
+          document.getElementById('recount-mode').checked = false; 
         } else {
-          alert("❌ 發生錯誤：" + result.message);
+          alert("❌ 送出失敗：" + data.message);
         }
       })
       .catch(error => {
-        alert("連線失敗，請檢查網路狀態或 GAS 網址是否正確。");
+        alert("❌ 網路錯誤，請檢查連線後重試！");
       })
       .finally(() => {
-        btn.innerText = "送出並繼續";
+        btn.innerText = originalText;
         btn.disabled = false;
       });
     }
