@@ -123,42 +123,44 @@ function renderTable() {
         <table>
           <tr>
             <th style="width:15%">大區</th>
-            <th style="width:20%">小區</th>
+            <th style="width:15%">小區</th>
             <th style="width:15%">代碼</th>
-            <th>藥品名稱</th>
+            <th>藥品名稱 (中/英)</th>
             <th style="width:15%; text-align:center;">數量</th>
           </tr>`;
       
       let displayCount = 0;
       
-      // 💡 擴大排除名單，把所有非「區域」的欄位都塞進去
-      const excludeKeys = ["院內碼", "藥品代碼", "藥品名稱", "總計加總", "時間", "位置", "調劑檯", "備註"];
+      // 💡 將您的標題欄位加入排除名單，避免被誤認成「小區」
+      const excludeKeys = ["院內碼", "藥品代碼", "中文商品名", "英文商品名", "藥品名稱", "總計加總", "時間", "位置", "備註"];
 
       rawData.forEach(item => {
-        // 💡 智慧辨識代碼：適應「院內碼」或「藥品代碼」
-        const drugCode = item["院內碼"] || item["藥品代碼"] || "未知";
-        const drugName = item["藥品名稱"] || "未知藥名";
+        // 1. 抓取代碼
+        const drugCode = item["院內碼"] || item["藥品代碼"] || "無代碼";
         
+        // 2. 💡 組合中英文商品名
+        const cName = item["中文商品名"] || "";
+        const eName = item["英文商品名"] || "";
+        const drugName = (cName && eName) ? `${cName} (${eName})` : (cName || eName || "未知藥名");
+        
+        // 搜尋過濾
         const matchSearch = drugName.toLowerCase().includes(keyword) || drugCode.toLowerCase().includes(keyword);
         if (!matchSearch) return;
 
         Object.keys(item).forEach(key => {
-          // 1. 如果是排除名單內的欄位，跳過
-          if (excludeKeys.includes(key)) return; 
-          
-          // 2. 如果該欄位的內容不是數字（例如是時間格式），跳過
+          const trimmedKey = key.trim();
+          if (excludeKeys.includes(trimmedKey)) return; 
+
           const qty = parseFloat(item[key]);
           if (isNaN(qty) || qty <= 0) return; 
 
-          // 拆解標題 (門診-調劑檯1)
-          let parts = key.split('-');
+          let parts = trimmedKey.split('-');
           let grandArea = parts[0] || "其他";
           let subArea = parts[1] || "全部品項";
 
-          // --- 過濾邏輯 ---
           let shouldDisplay = false;
           if (type === 'single') {
-            if (key === subAreaFilter) shouldDisplay = true;
+            if (trimmedKey === subAreaFilter) shouldDisplay = true;
           } else if (type === 'main1') {
             if (grandArea.includes("門診")) shouldDisplay = true;
           } else if (type === 'main2') {
