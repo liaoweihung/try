@@ -30,14 +30,14 @@
       <option value="" disabled selected>請選擇大區...</option>
     </select>
 
-    <label for="sub-area">2. 次區：</label>
+    <label id="sub-area-label" for="sub-area">2. 小區：</label>
     <select id="sub-area" onchange="updateCabinet()">
       <option value="" disabled selected>請先選擇上方的大區</option>
     </select>
 
-    <label id="cabinet-label" for="cabinet">3. 櫃位編號：</label>
+    <label id="cabinet-label" for="cabinet">3. 櫃位：</label>
     <select id="cabinet">
-      <option value="" disabled selected>請先選擇上方的次區</option>
+      <option value="" disabled selected>請先選擇上方的小區</option>
     </select>
 
     <button onclick="startInventory()" style="margin-top: 15px;">開始盤點此區</button>
@@ -55,26 +55,27 @@
     // ⚠️ 請替換為您的 GAS Web App 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
 
-    // 將 Excel 貼上於此 (此處保留幾筆作為範例，請貼上您完整的百筆資料)
-    const rawExcelData = [
-["5001","克菸貼片","Nicotinell TTS","Nicotine","水A4","水藥檯","門診"],
+    // ▼▼▼ 請將您 Google Sheets 產生的陣列貼在這裡 ▼▼▼
+    // 欄位順序：[院內碼, 中文名, 英文名, 學名, 櫃位, 小區1, 小區2, 大區1, 大區2]
+    const rawExcelData = [ 
+      ["5001","克菸貼片","Nicotinell TTS","Nicotine","水A4","水藥檯","門診"],
 ["A001","納霍利膜衣錠","Notholic","Naltrexone HCl","點滴3","點滴區","門診"],
 ["A002","芙琳亞錠","Folina","Calcium Folinate","G32","調劑檯","門診"],
 ["A003","暢寧錠、勝克敏液","Cetia、Cetirizine oral solution","Cetirizine","G31","調劑檯","門診"],
-["A004","感冒膠囊","Cold","Acetaminophen/Noscapine/Phenylephrine/Glyceryl Guaiacolate","藥包機","藥包機","門診","門診庫存"],
+["A004","感冒膠囊","Cold","Acetaminophen/Noscapine/Phenylephrine/Glyceryl Guaiacolate","藥包機","藥包機","門診庫存","門診"],
 ["A005","停敏錠","Denosin","Desloratadine","G31","調劑檯","門診"],
 ["A006","胃樂順膜衣錠","Fadin","Famotidine","E1","調劑檯","門診"],
 ["A007","舒腦膠囊","Suzin","Flunarizine","G31","調劑檯","門診"],
 ["A008","艾來錠劑","Allegra","Fexofenadine HCl","A2","調劑檯","門診","中山"],
 ["A009","莫鼻卡24小時持續性膜衣錠","LoraPseudo 24h SR tab","Loratadine + Pseudoephedrine","G41","調劑檯","門診"],
 ["A010","驅異樂膜衣錠","Xyzal","Levocetirizine","G41","調劑檯","門診","中山"],
-["A011","美克旅鎮片","Meclizine","Meclizine","藥包機","藥包機","門診","門診庫"],
+["A011","美克旅鎮片","Meclizine","Meclizine","藥包機","藥包機","門診庫","門診"],
 ["A013","必克風膠囊","P.P.C","Acetaminophen/Caffeine/Dexchlorpheniramine/Ethoxybenzamide","G52","調劑檯","門診"],
-["A014","普治敏錠","Lonzumin","Buclizine 2HCl","藥包機","藥包機","門診","門診庫","中山"],
+["A014","普治敏錠","Lonzumin","Buclizine 2HCl","藥包機","藥包機","門診庫","門診","中山"],
 ["A015","希普利敏液","Cypromin solution","Cyproheptadine HCl","水G22","水藥檯","門診"],
 ["A016","敵芬尼朵糖衣錠","Diphenidol","Diphenidol HCl","A2","調劑檯","門診"],
 ["A018","克裏美淨速崩錠","Kremezin","Spherical absorptive carbon","櫃子","櫃子","門診"],
-["B001","寧司泰定膠囊","Nystatin cap","Nystatin","藥包機","藥包機","門診","門診庫"],
+["B001","寧司泰定膠囊","Nystatin cap","Nystatin","藥包機","藥包機","門診庫","門診"],
 ["B002","克流感膠囊/易剋冒膠囊","Tamiflu/Eraflu","Oseltamivir phosphate","ADC","ADC","門診"],
 ["B003","瑞樂沙旋達碟","Relenza rotadisks","Zanamivir","ADC","ADC","門診"],
 ["B004","安滿達膜衣錠","Amanda","Amantadine sulfate","G42","調劑檯","門診"],
@@ -90,11 +91,11 @@
 ["B015","頗得斯安持續性藥效顆粒劑","Pentasa granules","Mesalazine PR granules","A3","調劑檯","門診"],
 ["C001","安滅菌糖漿用粉劑","Augmentin syrup","Amoxicillin/Clavulanate","水G23","水藥檯","門診"],
 ["C003","優力黴素口服懸液用顆粒","Ulexin for suspension","Cephalexin","水G23","水藥檯","門診"],
-["C004","紅黴素硬脂酸醯錠","Erythromycin "SHITEH"","Erythromycin stearate","藥包機","藥包機","門診","門診庫"],
+["C004","紅黴素硬脂酸醯錠","Erythromycin "SHITEH"","Erythromycin stearate","藥包機","藥包機","門診庫","門診"],
 ["C005","摩斯羅膜衣錠","Mosflow","Moxifloxacin","G43","調劑檯","門診"],
 ["C007","日舒錠","Zithromax","Azithromycin","G42","調劑檯","門診"],
-["C008","安謀黴素膠囊","Amoxicillin","Amoxicillin trihydrate","藥包機","藥包機","門診","門診庫"],
-["C009","賜信膠囊","Cexime","Cefixime","藥包機","藥包機","門診","門診庫"],
+["C008","安謀黴素膠囊","Amoxicillin","Amoxicillin trihydrate","藥包機","藥包機","門診庫","門診"],
+["C009","賜信膠囊","Cexime","Cefixime","藥包機","藥包機","門診庫","門診"],
 ["C010","梅樂黴素顆粒劑","Monurol","Fosfomycin","專案4","專案區","門診"],
 ["C010","諾快寧膜衣錠","Curam","Amoxicillin/Clavulanate","A3","調劑檯","門診"],
 ["C011","利達信黴素膠囊","Lindacin","Clindamycin","G42","調劑檯","門診","中山"],
@@ -117,20 +118,20 @@
 ["D016","義大利得舒緩膜衣錠","Tarceva","Erlotinib","ADC","ADC","門診"],
 ["D017","達癬治注射劑","Taltz inj","Ixekizumab","冰2","冰箱","門診"],
 ["D018","特諾雅注射液","Tremfya inj","Guselkumab","冰2","冰箱","門診"],
-["E001","易克痛膜衣錠","Ergoton","Ergotamine/Caffeine","藥包機","藥包機","門診","門診庫"],
+["E001","易克痛膜衣錠","Ergoton","Ergotamine/Caffeine","藥包機","藥包機","門診庫","門診"],
 ["E002","得舒特膜衣錠","Dicetel","Pinaverium bromide","G42","調劑檯","門診"],
 ["E003","英明格速溶錠","Imigran FDT","Sumatriptan","G31","調劑檯","門診"],
-["E005","液泌快膜衣錠","Salicret","Pilocarpine HCl","藥包機","藥包機","門診","門診庫"],
+["E005","液泌快膜衣錠","Salicret","Pilocarpine HCl","藥包機","藥包機","門診庫","門診"],
 ["E007","得舒妥持續性藥效膠囊","Detrusitol SR PR","Tolterodine L-tartrate","G31","調劑檯","門診"],
 ["F001","臟得樂錠","Cordarone","Amiodarone","G32","調劑檯","門診"],
-["F002","脈優錠","Norvasc","Amlodipine besylate","D2","調劑檯","門診","B1庫"],
-["F005","妥寧膜衣錠","Tulip","Atorvastatin","D2","調劑檯","門診","B1庫"],
+["F002","脈優錠","Norvasc","Amlodipine besylate","D2","調劑檯","B1庫","門診"],
+["F005","妥寧膜衣錠","Tulip","Atorvastatin","D2","調劑檯","B1庫","門診"],
 ["F006","寧耳眩錠","Nilasen","Betahistine 2HCl","A2","調劑檯","門診"],
-["F008","康肯錠","Concor","Bisoprolol","C1","調劑檯","門診","B1庫"],
+["F008","康肯錠","Concor","Bisoprolol","C1","調劑檯","B1庫","門診"],
 ["F009","血樂平錠","Ceporin","Captopril","水D3","水藥檯","門診"],
 ["F010","心全錠","Syntrend","Carvedilol","G32","調劑檯","門診"],
 ["F011","降保適錠","Catapres","Clonidine","G32","調劑檯","門診"],
-["F012","保栓通錠/舒栓寧膜衣錠","Plavix/Clopidogrel Sandoz","Clopidogrel","C2","調劑檯","門診","B1庫"],
+["F012","保栓通錠/舒栓寧膜衣錠","Plavix/Clopidogrel Sandoz","Clopidogrel","C2","調劑檯","B1庫","門診"],
 ["F013","隆我心錠","Lanoxin","Digoxin","藥包機","藥包機","門診"],
 ["F015","合必爽錠/凱帝心徐放錠","Herbesser/Cardizem Unotard","Diltiazem","G32","調劑檯","門診"],
 ["F016","待匹力達糖衣錠","Dipyridamole","Dipyridamole","G31","調劑檯","門診"],
@@ -143,33 +144,33 @@
 ["F027","壓血泰膜衣錠","Labtal","Labetalol HCl","G32","調劑檯","門診"],
 ["F028","利壓膜衣錠","Zanidip","Lercanidipine","D2","調劑檯","門診"],
 ["F030","好悅您膜衣錠","Hyzaar","Losartan/Hydrochlorothiazide","D3","調劑檯","門診"],
-["F032","脈得保糖衣錠","Methyldopa","Methyldopa","藥包機","藥包機","門診","門診庫"],
+["F032","脈得保糖衣錠","Methyldopa","Methyldopa","藥包機","藥包機","門診庫","門診"],
 ["F034","喜革脈錠","Sigmart","Nicorandil","G32","調劑檯","門診"],
 ["F035","恆脈循持續性膜衣錠/壓達能軟膠囊","Nifedipine/Atanaal cap","Nifedipine","D3","調劑檯","門診"],
 ["F036","耐絞寧錠","Nitrostat SL","Nitroglycerin SL","G32","調劑檯","門診"],
 ["F037","雅脈膜衣錠","Olmetec","Olmesartan medoxomil","D2","調劑檯","門診"],
 ["F038","克栓腸溶糖衣錠","Throne","Pentoxifylline","C1","調劑檯","門診"],
-["F041","心利正膜衣錠","Rytmonorm","Propafenone","G32","調劑檯","門診","門診庫"],
+["F041","心利正膜衣錠","Rytmonorm","Propafenone","G32","調劑檯","門診庫","門診"],
 ["F042","心律錠","Propranolol","Propranolol","C1","調劑檯","門診"],
 ["F045","必康平錠","Micardis","Telmisartan","D2","調劑檯","門診"],
 ["F047","高育維軟膠囊","Juvela N","Tocopherol Nicotinate","G31","調劑檯","門診"],
-["F048","得安穩膜衣錠","Diovan","Valsartan","D1","調劑檯","門診"," B1庫"],
+["F048","得安穩膜衣錠","Diovan","Valsartan","D1","調劑檯"," B1庫","門診"],
 ["F050","心舒平膜衣錠","Isoptin SR","Verapamil","D3","調劑檯","門診"],
 ["F053","脂妙清軟膠囊","Omacor Soft Capsules","Omega-3- Acid Ethyl Esters 90","水D4","水藥檯","門診"],
 ["F054","保脂通注射劑","Praluent solution for injection","Alirocumab","冰2","冰箱","門診"],
-["F055","百無凝膜衣錠","Brilinta","Ticagrelor","C3","調劑檯","門診"," "],
+["F055","百無凝膜衣錠","Brilinta","Ticagrelor","C3","調劑檯"," ","門診"],
 ["F056","優列扶膜衣錠","Urief","Silodosin","C2","調劑檯","門診"],
 ["F057","康立來膜衣錠","Coralan","Ivabradine","G31","調劑檯","門診"],
-["F058","舒脈康膜衣錠","Sevikar","Amlodipine/olmesartan","D2","調劑檯","門診"," B1庫"],
-["F059","健安心膜衣錠","Entresto","Sacubitril/Valsartan","D3","調劑檯","門診"," B1庫"],
-["F060","力清之膜衣錠","Livalo","Pitavastatin calcium","D1","調劑檯","門診"," B1庫"],
+["F058","舒脈康膜衣錠","Sevikar","Amlodipine/olmesartan","D2","調劑檯"," B1庫","門診"],
+["F059","健安心膜衣錠","Entresto","Sacubitril/Valsartan","D3","調劑檯"," B1庫","門診"],
+["F060","力清之膜衣錠","Livalo","Pitavastatin calcium","D1","調劑檯"," B1庫","門診"],
 ["F061","脈泰克膜衣錠","Multaq","Dronedarone","G33","調劑檯","門診"],
 ["F062","理脂膜衣錠","Linicor","Lovastatin+Niacin","D3","調劑檯","門診"],
 ["F063","心達舒錠","Tritace","Ramipril","G32","調劑檯","門診"],
-["F065","耐比洛錠","Nebilet","Nebivolol","G33","調劑檯","門診"," B1庫"],
+["F065","耐比洛錠","Nebilet","Nebivolol","G33","調劑檯"," B1庫","門診"],
 ["G001","憶思能穿皮貼片","Exelon Patch","Rivastigmine","專案1","專案區","門診"],
-["G002","紐普洛穿皮貼片劑","Neupro patch","Rotigotine","專案2","專案區","門診"," B1庫"],
-["G003","立定錠","Lidin","Lithium carbonate","藥包機","藥包機","門診"," B1庫"],
+["G002","紐普洛穿皮貼片劑","Neupro patch","Rotigotine","專案2","專案區"," B1庫","門診"],
+["G003","立定錠","Lidin","Lithium carbonate","藥包機","藥包機"," B1庫","門診"],
 ["G004","卡賓錠","Carpine","Carbamazepine","E4","調劑檯","門診"],
 ["G005","靜安膜衣錠","Tone","Imipramine HCl","E3","調劑檯","門診"],
 ["G006","苯巴比特魯錠","Phenobarbital","Phenobarbital","管藥區","管藥區","門診"],
@@ -181,57 +182,67 @@
 ["G013","佐能安膜衣錠","Zonegran","Zonisamide","D3","調劑檯","門診"],
 ["G014","愛憶欣口崩錠","Aricept OD","Donepezil HCl","G21","調劑檯","門診"],
 ["G015","帝拔癲膜衣錠","Depakine chrono","Valproate sodium","D3","調劑檯","門診"],
-
-      
     ];
+    // ▲▲▲ 貼上區域結束 ▲▲▲
 
     const db = {};
 
     window.onload = function() {
       rawExcelData.forEach(row => {
+        // 1. 抓取基本資料
         const code = row[0];
         const name = row[1] + " (" + row[2] + ")";
-        const excelCabinet = String(row[4]).trim(); 
+        const rawCabinet = String(row[4] || "").trim();
         
-        const locationTags = [...new Set(row.slice(5))].filter(tag => tag && tag.trim() !== "");
+        // 2. 抓取小區與大區 (過濾掉空白的格子)
+        const rawSubAreas = [row[5], row[6]].map(s => String(s || "").trim()).filter(s => s !== "");
+        const rawMainAreas = [row[7], row[8]].map(s => String(s || "").trim()).filter(s => s !== "");
 
-        locationTags.forEach(tag => {
-          let mainArea = "";
-          let subAreas = [];
+        // 3. 核心分發邏輯
+        rawMainAreas.forEach(mainArea => {
+          if (!db[mainArea]) db[mainArea] = {};
 
-          if (tag === "門診") return; 
-          else if (tag === "中山") {
-             mainArea = "中山";
-             subAreas = ["中山藥局"]; 
-          } else {
-             mainArea = "門診";
-             if (tag === "調劑檯") {
-               subAreas = ["調劑檯1", "調劑檯2", "調劑檯3"];
-             } else if (tag === "門診庫存" || tag === "門診庫") {
-               subAreas = ["門診庫"];
-             } else {
-               subAreas = [tag]; 
-             }
-          }
-
-          subAreas.forEach(sub => {
-             let finalCabinet = excelCabinet;
-             if (sub === "門診庫" || sub === "B1庫" || sub === "中山藥局") {
-                 finalCabinet = "全部品項";
-             }
-
-             if (!db[mainArea]) db[mainArea] = {};
-             if (!db[mainArea][sub]) db[mainArea][sub] = {};
-             if (!db[mainArea][sub][finalCabinet]) db[mainArea][sub][finalCabinet] = [];
+          if (mainArea === "中山") {
+             // 【中山專屬通道】直接忽略小區與櫃位，強制歸入預設目錄
+             if (!db[mainArea]["中山藥局"]) db[mainArea]["中山藥局"] = {};
+             if (!db[mainArea]["中山藥局"]["全部品項"]) db[mainArea]["中山藥局"]["全部品項"] = [];
              
-             const exists = db[mainArea][sub][finalCabinet].some(d => d.code === code);
-             if (!exists) {
-               db[mainArea][sub][finalCabinet].push({ code: code, name: name });
+             if (!db[mainArea]["中山藥局"]["全部品項"].some(d => d.code === code)) {
+               db[mainArea]["中山藥局"]["全部品項"].push({ code: code, name: name });
              }
-          });
+          } else {
+             // 【其他大區 (門診)】
+             let subAreas = rawSubAreas.length > 0 ? rawSubAreas : ["未分類"];
+
+             subAreas.forEach(sub => {
+                let expandedSubs = [sub];
+                
+                // 【調劑檯影分身】：自動分成三檯
+                if (sub === "調劑檯") {
+                  expandedSubs = ["調劑檯1", "調劑檯2", "調劑檯3"];
+                }
+
+                expandedSubs.forEach(finalSub => {
+                   let finalCabinet = rawCabinet;
+                   
+                   // 如果小區名稱包含「庫」(如 B1庫)，或是沒填櫃位，統一為全部品項
+                   if (finalSub.includes("庫") || !finalCabinet) {
+                       finalCabinet = "全部品項";
+                   }
+
+                   if (!db[mainArea][finalSub]) db[mainArea][finalSub] = {};
+                   if (!db[mainArea][finalSub][finalCabinet]) db[mainArea][finalSub][finalCabinet] = [];
+                   
+                   if (!db[mainArea][finalSub][finalCabinet].some(d => d.code === code)) {
+                     db[mainArea][finalSub][finalCabinet].push({ code: code, name: name });
+                   }
+                });
+             });
+          }
         });
       });
 
+      // 產生第一層「大區」選單
       const mainSelect = document.getElementById("main-area");
       Object.keys(db).forEach(area => {
          const opt = document.createElement("option");
@@ -244,21 +255,36 @@
     function updateSubArea() {
       const mainArea = document.getElementById("main-area").value;
       const subSelect = document.getElementById("sub-area");
+      const subLabel = document.getElementById("sub-area-label");
       const cabSelect = document.getElementById("cabinet");
       const cabLabel = document.getElementById("cabinet-label");
 
-      subSelect.innerHTML = '<option value="" disabled selected>請選擇次區...</option>';
-      cabSelect.innerHTML = '<option value="" disabled selected>請先選擇上方的次區</option>';
+      subSelect.innerHTML = '<option value="" disabled selected>請選擇小區...</option>';
+      cabSelect.innerHTML = '<option value="" disabled selected>請先選擇上方的小區</option>';
+      
+      // 預設將選單顯示出來
+      subSelect.style.display = 'block';
+      subLabel.style.display = 'block';
       cabSelect.style.display = 'block';
       cabLabel.style.display = 'block';
 
       if (db[mainArea]) {
-        Object.keys(db[mainArea]).sort().forEach(sub => {
-          const opt = document.createElement("option");
-          opt.value = sub;
-          opt.innerText = sub;
-          subSelect.appendChild(opt);
-        });
+        const subAreas = Object.keys(db[mainArea]).sort();
+
+        // 💡 如果只有一個小區(例如中山藥局)，自動選取並隱藏第二層，直接觸發櫃位更新
+        if (subAreas.length === 1 && subAreas[0] === "中山藥局") {
+            subSelect.innerHTML = '<option value="中山藥局" selected>中山藥局</option>';
+            subSelect.style.display = 'none';
+            subLabel.style.display = 'none';
+            updateCabinet(); 
+        } else {
+            subAreas.forEach(sub => {
+              const opt = document.createElement("option");
+              opt.value = sub;
+              opt.innerText = sub;
+              subSelect.appendChild(opt);
+            });
+        }
       }
     }
 
@@ -275,6 +301,7 @@
       if (db[mainArea] && db[mainArea][subArea]) {
         const cabinets = Object.keys(db[mainArea][subArea]).sort();
 
+        // 💡 如果只有「全部品項」(如 B1庫 或 中山)，自動選取並隱藏第三層
         if (cabinets.length === 1 && cabinets[0] === "全部品項") {
           cabSelect.innerHTML = '<option value="全部品項" selected>全部品項</option>';
           cabSelect.style.display = 'none';
@@ -300,6 +327,7 @@
         return;
       }
 
+      // 組合顯示文字，如果是全部品項就省略櫃位文字
       const cabText = cabinet === "全部品項" ? "" : ` - 櫃位 ${cabinet}`;
       document.getElementById("current-info").innerText = `目前：${mainArea} - ${subArea}${cabText}`;
       
@@ -326,7 +354,7 @@
     function submitData() {
       const mainArea = document.getElementById("main-area").value;
       const subArea = document.getElementById("sub-area").value;
-      const deskString = mainArea + "-" + subArea;
+      const deskString = mainArea + "-" + subArea; // 存入 Sheets 時會顯示如 "門診-調劑檯1"
       const loc = document.getElementById("cabinet").value;
       const inputs = document.querySelectorAll("#drug-list input[type='number']");
       
@@ -383,11 +411,12 @@
       document.getElementById("setup-section").classList.remove("hidden");
       document.getElementById("inventory-section").classList.add("hidden");
       
-      // 如果不是隱藏狀態，就清空櫃位讓使用者重選
+      // 返回時，只清空有顯示出來的選項，讓使用者重選
+      const subSelect = document.getElementById("sub-area");
       const cabSelect = document.getElementById("cabinet");
-      if(cabSelect.style.display !== 'none') {
-          cabSelect.value = ""; 
-      }
+      
+      if(subSelect.style.display !== 'none') subSelect.value = ""; 
+      if(cabSelect.style.display !== 'none') cabSelect.value = ""; 
     }
   </script>
 </body>
