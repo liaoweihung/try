@@ -372,7 +372,7 @@
       document.getElementById("inventory-section").classList.remove("hidden");
     }
 
-    function submitData() {
+  function submitData() {
       const mainArea = document.getElementById("main-area").value;
       const subArea = document.getElementById("sub-area").value;
       const deskString = mainArea + "-" + subArea;
@@ -452,7 +452,9 @@
           document.getElementById('drug-list').innerHTML = ''; 
           
           // 3. 💡 關鍵修復：自動觸發「返回重選」的動作，讓畫面切換回掃描區
-          goBack(); 
+          if (typeof goBack === "function") {
+            goBack(); 
+          }
           
           // 4. 貼心小優化：清空櫃位並讓游標自動對焦，方便人員直接拿條碼槍掃下一個抽屜
           setTimeout(() => {
@@ -462,13 +464,20 @@
               cabInput.focus();
             }
           }, 100);
-} else {
+        } else {
           alert("❌ 送出失敗：" + data.message);
         }
       })
-     
+      // 👇 就是漏掉下面這兩段 👇
+      .catch(error => {
+        alert("❌ 網路錯誤，請檢查連線後重試！");
+      })
+      .finally(() => {
+        // 不論成功或失敗，最後一定要把按鈕變回原本的樣子
+        btn.innerText = originalText;
+        btn.disabled = false;
+      });
     }
-
     function backToSetup() {
       document.getElementById("setup-section").classList.remove("hidden");
       document.getElementById("history-section").classList.remove("hidden");
