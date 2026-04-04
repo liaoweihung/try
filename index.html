@@ -444,12 +444,25 @@
       .then(data => {
         if (data.status === "success") {
           alert("✅ 送出成功！");
-          document.getElementById('cabinet').value = ''; // 清空櫃位欄位
-          document.getElementById('drug-list').innerHTML = ''; // 清空藥品清單
-          
-          // 💡 成功後自動取消覆盤勾選，避免同事下一櫃忘記關掉
+
+          // 1. 取消覆盤模式的打勾
           document.getElementById('recount-mode').checked = false; 
-        } else {
+          
+          // 2. 清空藥品清單
+          document.getElementById('drug-list').innerHTML = ''; 
+          
+          // 3. 💡 關鍵修復：自動觸發「返回重選」的動作，讓畫面切換回掃描區
+          goBack(); 
+          
+          // 4. 貼心小優化：清空櫃位並讓游標自動對焦，方便人員直接拿條碼槍掃下一個抽屜
+          setTimeout(() => {
+            const cabInput = document.getElementById('cabinet');
+            if (cabInput) {
+              cabInput.value = '';
+              cabInput.focus();
+            }
+          }, 100);
+} else {
           alert("❌ 送出失敗：" + data.message);
         }
       })
