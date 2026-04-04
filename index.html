@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <!-- 這一行非常重要，它確保網頁在手機上比例正確，不會縮得小小的 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>藥局盤點系統</title>
+  <style>
+    /* 基礎手機版樣式設定 */
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+    h2 { text-align: center; color: #2c3e50; }
+    .card { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    
+    /* 表單與按鈕放大，方便手指點擊 */
+    label { display: block; margin-bottom: 8px; font-weight: bold; }
+    select, input[type="number"] { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+    button { width: 100%; padding: 15px; background-color: #3498db; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
+    button:active { background-color: #2980b9; }
+    
+    /* 藥品輸入列表的樣式 */
+    .drug-item { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
+    .drug-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; color: #2c3e50; }
+    .drug-code { font-size: 14px; color: #7f8c8d; margin-bottom: 10px; }
+    
+    /* 隱藏區塊用的 class */
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <h2>📋 藥局盤點系統</h2>
+
+  <!-- 步驟一：設定區塊 -->
+  <div id="setup-section" class="card">
+    <label for="desk">選擇調劑檯：</label>
+    <select id="desk">
+      <option value="" disabled selected>請選擇...</option>
+      <option value="A檯">A檯</option>
+      <option value="B檯">B檯</option>
+      <option value="C檯">C檯</option>
+    </select>
+
+    <label for="location">選擇藥位編號：</label>
+    <!-- 實務上這裡可以改成輸入框，或者更多的下拉選項 -->
+    <select id="location">
+      <option value="" disabled selected>請選擇...</option>
+      <option value="A1">A1</option>
+      <option value="A2">A2</option>
+    </select>
+
+    <button onclick="startInventory()">開始盤點此位置</button>
+  </div>
+
+  <!-- 步驟二：盤點輸入區塊 -->
+  <div id="inventory-section" class="card hidden">
+    <div id="current-info" style="margin-bottom: 15px; font-weight: bold; color: #e67e22;"></div>
+    
+    <!-- 藥品清單會由 JavaScript 動態產生在這裡 -->
+    <div id="drug-list"></div>
+
+    <button style="background-color: #27ae60;" onclick="submitData()">送出並繼續</button>
+    <button style="background-color: #95a5a6; margin-top: 10px;" onclick="backToSetup()">返回重選</button>
+  </div>
+
+  <script>
+    // ⚠️ 這裡請替換成您剛剛在 GAS 部署得到的 Web App URL！
+    const GAS_URL = "https://script.google.com/macros/s/您的金鑰/exec";
+
+    // 模擬藥局的「藥位與藥品對應」資料庫
+    const drugDatabase = {
+      "A1": [
+        { code: "A001", name: "普拿疼加強錠 (Panadol)" },
+        { code: "A002", name: "阿斯匹靈 (Aspirin)" },
+        { code: "A003", name: "胃乳片 (Gelfos)" }
+      ],
+      "A2": [
+        { code: "B001", name: "降血壓藥 (Amlodipine)" },
+        { code: "B002", name: "降血糖藥 (Metformin)" }
+      ]
+    };
+
+    // 切換到盤點畫面
+    function startInventory() {
+      const desk = document.getElementById("desk").value;
+      const loc = document.getElementById("location").value;
+
+      if (!desk || !loc) {
+        alert("請先選擇調劑檯與位置！");
+        return;
+      }
+
+      // 顯示目前盤點資訊
+      document.getElementById("current-info").innerText = `目前盤點：${desk} - 位置 ${loc}`;
+      
+      // 生成藥品輸入框
+      const listDiv = document.getElementById("drug-list");
+      listDiv.innerHTML = ""; // 清空上次的內容
+      
+      const drugs = drugDatabase[loc] || [];
+      if(drugs.length === 0) {
+        listDiv.innerHTML = "<p>此位置沒有設定藥品。</p>";
+      } else {
+        drugs.forEach(drug => {
+          // 建立每個藥品的輸入區塊，inputmode="numeric" 確保手機跳出數字鍵盤
+          const html = `
+            <div class="drug-item">
+              <div class="drug-name">${drug.name}</div>
+              <div class="drug-code">代碼：${drug.code}</div>
+              <input type="number" id="qty-${drug.code}" data-code="${drug.code}" data-name="${drug.name}" placeholder="請輸入數量" inputmode="numeric" pattern="[0-9]*" min="0">
+            </div>
+          `;
+          listDiv.innerHTML += html;
+        });
+      }
+
+      // 切換顯示區塊
+      document.getElementById("setup-section").classList.add("hidden");
+      document.getElementById("inventory-section").classList.remove("hidden");
+    }
+
+    // 送出資料到 Google Sheets
+    function submitData() {
+      const desk = document.getElementById("desk").value;
+      const loc = document.getElementById("location").value;
+      const inputs = document.querySelectorAll("#drug-list input[type='number']");
+      
+      let itemsToSubmit = [];
+      let hasEmpty = false;
+
+      // 收集輸入的資料
+      inputs.forEach(input => {
+        const qty = input.value;
+        if (qty === "") hasEmpty = true; // 檢查是否有漏填
+        
+        itemsToSubmit.push({
+          drugCode: input.getAttribute("data-code"),
+          drugName: input.getAttribute("data-name"),
+          qty: qty || 0 // 如果真的沒填，預設為 0
+        });
+      });
+
+      if (hasEmpty) {
+        const confirmEmpty = confirm("有藥品尚未輸入數量，將以 0 計算。確定要送出嗎？");
+        if (!confirmEmpty) return;
+      }
+
+      // 準備要傳送的 JSON
+      const payload = {
+        desk: desk,
+        location: loc,
+        items: itemsToSubmit
+      };
+
+      // 顯示 loading 狀態
+      const btn = document.querySelector("#inventory-section button");
+      btn.innerText = "資料傳送中...";
+      btn.disabled = true;
+
+      // 使用 fetch API 傳送資料到 GAS
+      fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      })
+      .then(response => response.json())
+      .then(result => {
+        if(result.status === "success") {
+          alert("✅ 成功送出！請繼續下一個位置。");
+          backToSetup(); // 回到首頁準備盤下一個
+        } else {
+          alert("❌ 發生錯誤：" + result.message);
+        }
+      })
+      .catch(error => {
+        alert("連線失敗，請檢查網路狀態。");
+      })
+      .finally(() => {
+        // 恢復按鈕狀態
+        btn.innerText = "送出並繼續";
+        btn.disabled = false;
+      });
+    }
+
+    // 返回設定畫面
+    function backToSetup() {
+      document.getElementById("setup-section").classList.remove("hidden");
+      document.getElementById("inventory-section").classList.add("hidden");
+      
+      // 清空位置選項，讓同事強制重選，但保留「調劑檯」的選擇
+      document.getElementById("location").value = ""; 
+    }
+  </script>
+</body>
+</html>
