@@ -407,16 +407,18 @@
       });
     }
 
-    function backToSetup() {
+   function backToSetup() {
+      // 1. 切換畫面：顯示設定區，隱藏輸入區
       document.getElementById("setup-section").classList.remove("hidden");
       document.getElementById("inventory-section").classList.add("hidden");
       
-      // 返回時，只清空有顯示出來的選項，讓使用者重選
-      const subSelect = document.getElementById("sub-area");
+      // 2. 核心修改：保留大區與小區，只清空「櫃位」
       const cabSelect = document.getElementById("cabinet");
       
-      if(subSelect.style.display !== 'none') subSelect.value = ""; 
-      if(cabSelect.style.display !== 'none') cabSelect.value = ""; 
+      // 如果櫃位選單有顯示出來，就把它重置為「請選擇櫃位」
+      if (cabSelect.style.display !== 'none') {
+          cabSelect.value = ""; 
+      }
     }
   </script>
 </body>
