@@ -53,6 +53,13 @@
   <div id="inventory-section" class="card hidden">
     <div id="current-info" style="margin-bottom: 15px; font-weight: bold; color: #e67e22;"></div>
     <div id="drug-list"></div>
+    <!-- 新增的覆盤模式開關 -->
+<div style="margin-bottom: 15px; background-color: #fff3cd; padding: 12px; border-radius: 8px; border-left: 5px solid #ffc107;">
+  <label style="display: flex; align-items: center; cursor: pointer; font-size: 16px; font-weight: bold; color: #856404; margin: 0;">
+    <input type="checkbox" id="recount-mode" style="width: 20px; height: 20px; margin-right: 10px;">
+    🔄 單藥覆盤模式 (保留同櫃位其他藥)
+  </label>
+</div>
     <button id="submit-btn" style="background-color: #27ae60;" onclick="submitData()">送出並繼續</button>
     <button style="background-color: #95a5a6; margin-top: 10px;" onclick="backToSetup()">返回重選</button>
   </div>
