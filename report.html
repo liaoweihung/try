@@ -112,57 +112,77 @@
       renderTable();
     }
 
-    function renderTable() {
+function renderTable() {
       if (rawData.length === 0) return;
 
       const type = document.getElementById('report-type').value;
-      const subArea = document.getElementById('sub-area-select').value;
+      const subAreaFilter = document.getElementById('sub-area-select').value;
       const keyword = document.getElementById('search-box').value.toLowerCase();
       const container = document.getElementById('report-container');
 
-      // 決定要計算哪些欄位
-      let html = `<table><tr><th>藥品資訊</th><th style="width:80px; text-align:center;">數量</th></tr>`;
+      // 設定新的五欄式表頭
+      let html = `
+        <table>
+          <tr>
+            <th style="width:15%">大區</th>
+            <th style="width:20%">小區</th>
+            <th style="width:15%">代碼</th>
+            <th>藥品名稱</th>
+            <th style="width:15%; text-align:center;">數量</th>
+          </tr>`;
       
       let displayCount = 0;
+      const excludeKeys = ["院內碼", "藥品名稱", "總計加總"];
 
       rawData.forEach(item => {
-        let displayQty = 0;
-
-        if (type === 'single') {
-          displayQty = item[subArea] || 0;
-        } else if (type === 'main1') {
-          // 加總所有包含「門診」字樣的欄位
-          Object.keys(item).forEach(key => {
-            if (key.includes("門診")) displayQty += (item[key] || 0);
-          });
-        } else if (type === 'main2') {
-          // 加總所有包含「中山」字樣的欄位
-          Object.keys(item).forEach(key => {
-            if (key.includes("中山")) displayQty += (item[key] || 0);
-          });
-        } else if (type === 'total') {
-          displayQty = item["總計加總"] || 0;
-        }
-
-        // 搜尋過濾 & 只顯示數量大於 0 的
-        const matchSearch = item["藥品名稱"].toLowerCase().includes(keyword) || item["院內碼"].toLowerCase().includes(keyword);
+        const drugCode = item["院內碼"];
+        const drugName = item["藥品名稱"];
         
-        if (displayQty > 0 && matchSearch) {
-          displayCount++;
-          html += `
-            <tr>
-              <td>
-                <strong>${item["藥品名稱"]}</strong><br>
-                <span class="drug-info">代碼: ${item["院內碼"]}</span>
-              </td>
-              <td class="qty-cell">${displayQty}</td>
-            </tr>
-          `;
-        }
+        // 搜尋過濾：先檢查藥名或代碼是否符合搜尋關鍵字
+        const matchSearch = drugName.toLowerCase().includes(keyword) || drugCode.toLowerCase().includes(keyword);
+        if (!matchSearch) return;
+
+        // 遍歷這筆藥品的所有欄位 (找出有數字的小區)
+        Object.keys(item).forEach(key => {
+          if (excludeKeys.includes(key)) return; // 跳過非數量的欄位
+
+          const qty = item[key] || 0;
+          if (qty <= 0) return; // 數量為 0 的就不顯示
+
+          // 拆解標題 (門診-調劑檯1 -> 大區:門診, 小區:調劑檯1)
+          let parts = key.split('-');
+          let grandArea = parts[0] || "";
+          let subArea = parts[1] || "全部品項";
+
+          // --- 根據選擇的報表類型進行過濾 ---
+          let shouldDisplay = false;
+          if (type === 'single') {
+            if (key === subAreaFilter) shouldDisplay = true;
+          } else if (type === 'main1') {
+            if (grandArea.includes("門診")) shouldDisplay = true;
+          } else if (type === 'main2') {
+            if (grandArea.includes("中山")) shouldDisplay = true;
+          } else if (type === 'total') {
+            shouldDisplay = true; // 全部顯示
+          }
+
+          if (shouldDisplay) {
+            displayCount++;
+            html += `
+              <tr>
+                <td>${grandArea}</td>
+                <td>${subArea}</td>
+                <td style="font-family: monospace;">${drugCode}</td>
+                <td>${drugName}</td>
+                <td class="qty-cell">${qty}</td>
+              </tr>
+            `;
+          }
+        });
       });
 
       html += `</table>`;
-      container.innerHTML = displayCount > 0 ? html : "<p style='text-align:center; padding:20px; color:#999;'>查無符合條件的藥品數字</p>";
+      container.innerHTML = displayCount > 0 ? html : "<p style='text-align:center; padding:20px; color:#999;'>查無符合條件的數據</p>";
     }
   </script>
 </body>
