@@ -17,6 +17,12 @@
     .drug-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; color: #2c3e50; }
     .drug-code { font-size: 14px; color: #7f8c8d; margin-bottom: 10px; }
     .hidden { display: none; }
+    /* 歷史紀錄專用樣式 */
+    .history-item { border-bottom: 1px dashed #ccc; padding: 10px 0; }
+    .history-item:last-child { border-bottom: none; }
+    .history-title { font-weight: bold; color: #2980b9; margin-bottom: 5px; }
+    .history-details { color: #555; font-size: 14px; line-height: 1.5; }
+    .qty-highlight { color: #e74c3c; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -51,14 +57,22 @@
     <button style="background-color: #95a5a6; margin-top: 10px;" onclick="backToSetup()">返回重選</button>
   </div>
 
+  <!-- 歷史紀錄區塊 (新增) -->
+  <div id="history-section" class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h3 style="margin: 0; color: #2c3e50;">🕒 本機盤點紀錄</h3>
+      <button onclick="clearHistory()" style="width: auto; padding: 5px 10px; font-size: 12px; background-color: #e74c3c;">清除紀錄</button>
+    </div>
+    <div id="history-list" style="font-size: 14px; color: #7f8c8d;">尚無紀錄</div>
+  </div>
+
   <script>
     // ⚠️ 請替換為您的 GAS Web App 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
 
     // ▼▼▼ 請將您 Google Sheets 產生的陣列貼在這裡 ▼▼▼
-    // 欄位順序：[院內碼, 中文名, 英文名, 學名, 櫃位, 小區1, 小區2, 大區1, 大區2]
-    const rawExcelData = [ 
-["5001", "克菸貼片", "Nicotinell TTS", "Nicotine", "水A4", "水藥檯", "", "門診", ""],
+    const rawExcelData = [
+    ["5001", "克菸貼片", "Nicotinell TTS", "Nicotine", "水A4", "水藥檯", "", "門診", ""],
 ["A001", "納霍利膜衣錠", "Notholic", "Naltrexone HCl", "點滴3", "點滴區", "", "門診", ""],
 ["A002", "芙琳亞錠", "Folina", "Calcium Folinate", "G32", "調劑檯", "", "門診", ""],
 ["A003", "暢寧錠、勝克敏液", "Cetia、Cetirizine oral solution", "Cetirizine", "G31", "調劑檯", "", "門診", ""],
@@ -186,53 +200,38 @@
     // ▲▲▲ 貼上區域結束 ▲▲▲
 
     const db = {};
+    // 讀取手機本地的歷史紀錄，若無則為空陣列
+    let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
 
     window.onload = function() {
       rawExcelData.forEach(row => {
-        // 1. 抓取基本資料
         const code = row[0];
         const name = row[1] + " (" + row[2] + ")";
         const rawCabinet = String(row[4] || "").trim();
-        
-        // 2. 抓取小區與大區 (過濾掉空白的格子)
         const rawSubAreas = [row[5], row[6]].map(s => String(s || "").trim()).filter(s => s !== "");
         const rawMainAreas = [row[7], row[8]].map(s => String(s || "").trim()).filter(s => s !== "");
 
-        // 3. 核心分發邏輯
         rawMainAreas.forEach(mainArea => {
           if (!db[mainArea]) db[mainArea] = {};
 
           if (mainArea === "中山") {
-             // 【中山專屬通道】直接忽略小區與櫃位，強制歸入預設目錄
              if (!db[mainArea]["中山藥局"]) db[mainArea]["中山藥局"] = {};
              if (!db[mainArea]["中山藥局"]["全部品項"]) db[mainArea]["中山藥局"]["全部品項"] = [];
-             
              if (!db[mainArea]["中山藥局"]["全部品項"].some(d => d.code === code)) {
                db[mainArea]["中山藥局"]["全部品項"].push({ code: code, name: name });
              }
           } else {
-             // 【其他大區 (門診)】
              let subAreas = rawSubAreas.length > 0 ? rawSubAreas : ["未分類"];
-
              subAreas.forEach(sub => {
                 let expandedSubs = [sub];
-                
-                // 【調劑檯影分身】：自動分成三檯
-                if (sub === "調劑檯") {
-                  expandedSubs = ["調劑檯1", "調劑檯2", "調劑檯3"];
-                }
+                if (sub === "調劑檯") expandedSubs = ["調劑檯1", "調劑檯2", "調劑檯3"];
 
                 expandedSubs.forEach(finalSub => {
                    let finalCabinet = rawCabinet;
-                   
-                   // 如果小區名稱包含「庫」(如 B1庫)，或是沒填櫃位，統一為全部品項
-                   if (finalSub.includes("庫") || !finalCabinet) {
-                       finalCabinet = "全部品項";
-                   }
+                   if (finalSub.includes("庫") || !finalCabinet) finalCabinet = "全部品項";
 
                    if (!db[mainArea][finalSub]) db[mainArea][finalSub] = {};
                    if (!db[mainArea][finalSub][finalCabinet]) db[mainArea][finalSub][finalCabinet] = [];
-                   
                    if (!db[mainArea][finalSub][finalCabinet].some(d => d.code === code)) {
                      db[mainArea][finalSub][finalCabinet].push({ code: code, name: name });
                    }
@@ -242,7 +241,6 @@
         });
       });
 
-      // 產生第一層「大區」選單
       const mainSelect = document.getElementById("main-area");
       Object.keys(db).forEach(area => {
          const opt = document.createElement("option");
@@ -250,6 +248,9 @@
          opt.innerText = area;
          mainSelect.appendChild(opt);
       });
+
+      // 畫面載入時先印出歷史紀錄
+      renderHistory();
     };
 
     function updateSubArea() {
@@ -260,166 +261,4 @@
       const cabLabel = document.getElementById("cabinet-label");
 
       subSelect.innerHTML = '<option value="" disabled selected>請選擇小區...</option>';
-      cabSelect.innerHTML = '<option value="" disabled selected>請先選擇上方的小區</option>';
-      
-      // 預設將選單顯示出來
-      subSelect.style.display = 'block';
-      subLabel.style.display = 'block';
-      cabSelect.style.display = 'block';
-      cabLabel.style.display = 'block';
-
-      if (db[mainArea]) {
-        const subAreas = Object.keys(db[mainArea]).sort();
-
-        // 💡 如果只有一個小區(例如中山藥局)，自動選取並隱藏第二層，直接觸發櫃位更新
-        if (subAreas.length === 1 && subAreas[0] === "中山藥局") {
-            subSelect.innerHTML = '<option value="中山藥局" selected>中山藥局</option>';
-            subSelect.style.display = 'none';
-            subLabel.style.display = 'none';
-            updateCabinet(); 
-        } else {
-            subAreas.forEach(sub => {
-              const opt = document.createElement("option");
-              opt.value = sub;
-              opt.innerText = sub;
-              subSelect.appendChild(opt);
-            });
-        }
-      }
-    }
-
-    function updateCabinet() {
-      const mainArea = document.getElementById("main-area").value;
-      const subArea = document.getElementById("sub-area").value;
-      const cabSelect = document.getElementById("cabinet");
-      const cabLabel = document.getElementById("cabinet-label");
-
-      cabSelect.innerHTML = '<option value="" disabled selected>請選擇櫃位...</option>';
-      cabSelect.style.display = 'block';
-      cabLabel.style.display = 'block';
-
-      if (db[mainArea] && db[mainArea][subArea]) {
-        const cabinets = Object.keys(db[mainArea][subArea]).sort();
-
-        // 💡 如果只有「全部品項」(如 B1庫 或 中山)，自動選取並隱藏第三層
-        if (cabinets.length === 1 && cabinets[0] === "全部品項") {
-          cabSelect.innerHTML = '<option value="全部品項" selected>全部品項</option>';
-          cabSelect.style.display = 'none';
-          cabLabel.style.display = 'none';
-        } else {
-          cabinets.forEach(cab => {
-            const opt = document.createElement("option");
-            opt.value = cab;
-            opt.innerText = cab;
-            cabSelect.appendChild(opt);
-          });
-        }
-      }
-    }
-
-    function startInventory() {
-      const mainArea = document.getElementById("main-area").value;
-      const subArea = document.getElementById("sub-area").value;
-      const cabinet = document.getElementById("cabinet").value;
-
-      if (!mainArea || !subArea || !cabinet) {
-        alert("請完整選擇區域！");
-        return;
-      }
-
-      // 組合顯示文字，如果是全部品項就省略櫃位文字
-      const cabText = cabinet === "全部品項" ? "" : ` - 櫃位 ${cabinet}`;
-      document.getElementById("current-info").innerText = `目前：${mainArea} - ${subArea}${cabText}`;
-      
-      const listDiv = document.getElementById("drug-list");
-      listDiv.innerHTML = ""; 
-      
-      const drugs = db[mainArea][subArea][cabinet] || [];
-      
-      drugs.forEach(drug => {
-        const html = `
-          <div class="drug-item">
-            <div class="drug-name">${drug.name}</div>
-            <div class="drug-code">代碼：${drug.code}</div>
-            <input type="number" data-code="${drug.code}" data-name="${drug.name}" placeholder="請輸入數量" inputmode="numeric" pattern="[0-9]*" min="0">
-          </div>
-        `;
-        listDiv.innerHTML += html;
-      });
-
-      document.getElementById("setup-section").classList.add("hidden");
-      document.getElementById("inventory-section").classList.remove("hidden");
-    }
-
-    function submitData() {
-      const mainArea = document.getElementById("main-area").value;
-      const subArea = document.getElementById("sub-area").value;
-      const deskString = mainArea + "-" + subArea; // 存入 Sheets 時會顯示如 "門診-調劑檯1"
-      const loc = document.getElementById("cabinet").value;
-      const inputs = document.querySelectorAll("#drug-list input[type='number']");
-      
-      let itemsToSubmit = [];
-      let hasEmpty = false;
-
-      inputs.forEach(input => {
-        const qty = input.value;
-        if (qty === "") hasEmpty = true; 
-        itemsToSubmit.push({
-          drugCode: input.getAttribute("data-code"),
-          drugName: input.getAttribute("data-name"),
-          qty: qty || 0 
-        });
-      });
-
-      if (hasEmpty) {
-        if (!confirm("有藥品尚未輸入數量，將以 0 計算。確定要送出嗎？")) return;
-      }
-
-      const payload = {
-        desk: deskString,
-        location: loc,
-        items: itemsToSubmit
-      };
-
-      const btn = document.getElementById("submit-btn");
-      btn.innerText = "資料傳送中...";
-      btn.disabled = true;
-
-      fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      })
-      .then(response => response.json())
-      .then(result => {
-        if(result.status === "success") {
-          alert("✅ 成功送出！請繼續下一個位置。");
-          backToSetup();
-        } else {
-          alert("❌ 發生錯誤：" + result.message);
-        }
-      })
-      .catch(error => {
-        alert("連線失敗，請檢查網路狀態或 GAS 網址是否正確。");
-      })
-      .finally(() => {
-        btn.innerText = "送出並繼續";
-        btn.disabled = false;
-      });
-    }
-
-   function backToSetup() {
-      // 1. 切換畫面：顯示設定區，隱藏輸入區
-      document.getElementById("setup-section").classList.remove("hidden");
-      document.getElementById("inventory-section").classList.add("hidden");
-      
-      // 2. 核心修改：保留大區與小區，只清空「櫃位」
-      const cabSelect = document.getElementById("cabinet");
-      
-      // 如果櫃位選單有顯示出來，就把它重置為「請選擇櫃位」
-      if (cabSelect.style.display !== 'none') {
-          cabSelect.value = ""; 
-      }
-    }
-  </script>
-</body>
-</html>
+      cabSelect.innerHTML = '<option value="" disabled selected
