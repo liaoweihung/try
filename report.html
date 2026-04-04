@@ -58,7 +58,7 @@
     
     let rawData = []; // 存儲從 GAS 抓回來的總表 JSON
 
-    async function fetchData() {
+ async function fetchData() {
       const btn = document.querySelector('.btn-refresh');
       btn.innerText = "正在連線中...";
       btn.disabled = true;
@@ -68,23 +68,37 @@
         const response = await fetch(GAS_URL);
         rawData = await response.json();
         
-        // 自動初始化「小區」下拉選單 (排除非區域欄位)
         const subSelect = document.getElementById('sub-area-select');
         subSelect.innerHTML = "";
-        const excludeKeys = ["院內碼", "藥品名稱", "總計加總"];
-        const areas = Object.keys(rawData[0]).filter(k => !excludeKeys.includes(k));
-        
-        areas.forEach(area => {
-          const opt = document.createElement('option');
-          opt.value = area;
-          opt.innerText = area;
-          subSelect.appendChild(opt);
-        });
 
-        document.getElementById('status-tag').innerText = "數據已同步 (共 " + rawData.length + " 筆)";
+        // 💡 關鍵修正：檢查有沒有抓到資料
+        if (rawData && rawData.length > 0) {
+          // 定義不需要顯示在下拉選單的欄位 (請務必與您的 Google Sheets 標題完全一致)
+          const excludeKeys = ["院內碼", "藥品名稱", "總計加總"];
+          
+          // 從第一筆資料抓取所有的欄位名稱
+          const allKeys = Object.keys(rawData[0]);
+          const areas = allKeys.filter(k => !excludeKeys.includes(k));
+          
+          if (areas.length > 0) {
+            areas.forEach(area => {
+              const opt = document.createElement('option');
+              opt.value = area;
+              opt.innerText = area;
+              subSelect.appendChild(opt);
+            });
+            document.getElementById('status-tag').innerText = "數據已同步 (共 " + rawData.length + " 筆藥品)";
+          } else {
+            document.getElementById('status-tag').innerText = "⚠️ 找不到可顯示的小區欄位";
+          }
+        } else {
+          document.getElementById('status-tag').innerText = "❌ 總表目前沒有資料，請先在 Sheets 設定總表";
+        }
+
         renderTable();
       } catch (err) {
-        alert("抓取失敗，請確認 GAS 是否部署為「所有人」皆可存取。");
+        console.error(err);
+        document.getElementById('status-tag').innerText = "❌ 抓取失敗，請檢查 GAS 網址與網路";
       } finally {
         btn.innerText = "🔄 更新雲端數據";
         btn.disabled = false;
