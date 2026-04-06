@@ -377,6 +377,7 @@
       document.getElementById("inventory-section").classList.remove("hidden");
     }
 function submitData() {
+      const note = document.getElementById("cabinet-note").value; // 抓取備註內容
       const mainArea = document.getElementById("main-area").value;
       const subArea = document.getElementById("sub-area").value;
       const deskString = mainArea + "-" + subArea;
