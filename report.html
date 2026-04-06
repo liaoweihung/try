@@ -18,6 +18,16 @@
     .drug-info { font-size: 12px; color: #7f8c8d; }
     .hidden { display: none; }
     .summary-badge { display: inline-block; padding: 4px 8px; background: #e8f4fd; color: #2980b9; border-radius: 4px; font-size: 12px; margin-bottom: 10px; }
+    /* 讓備註欄位可以自動換行，不會把表格撐爆 */
+    .note-cell {
+      color: #e74c3c;
+      font-size: 13px;
+      font-weight: bold;
+      line-height: 1.4;
+      word-break: break-all;
+      white-space: pre-wrap;
+      min-width: 150px;
+    }
   </style>
 </head>
 <body>
