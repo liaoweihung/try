@@ -447,7 +447,7 @@ function submitData() {
       .then(data => {
         if (data.status === "success") {
           alert("✅ 送出成功！");
-
+          document.getElementById('cabinet-note').value = ''; // 送出成功後清空筆記
           // --- 💡 關鍵修復：更新本機歷史紀錄 ---
           const now = new Date();
           const timeString = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
