@@ -77,33 +77,29 @@
     </div>
     <div id="history-list" style="font-size: 14px; color: #7f8c8d;">尚無紀錄</div>
   </div>
-
   <script>
-    // ⚠️ 請替換為您的 GAS Web App 網址
+// ⚠️ 請替換為您的 GAS Web App 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
 
-const db = {};
+    const db = {};
     // 讀取手機本地的歷史紀錄
     let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
 
+    // 💡 唯一的新版載入邏輯 (從雲端抓資料)
     window.onload = async function() {
       const mainSelect = document.getElementById("main-area");
       const startBtn = document.querySelector("button[onclick='startInventory()']");
       
-      // 💡 加入貼心提示，讓同事知道正在載入
       mainSelect.innerHTML = '<option value="" disabled selected>⏳ 藥品資料庫載入中...</option>';
       if(startBtn) startBtn.disabled = true;
 
       try {
-        // 向 GAS 請求最新的藥品資料
         const response = await fetch(GAS_URL + "?action=getDrugs");
         const rawExcelData = await response.json();
 
-        // 資料抓回來後，恢復選單狀態
         mainSelect.innerHTML = '<option value="" disabled selected>請選擇大區...</option>';
         if(startBtn) startBtn.disabled = false;
 
-        // 💡 接下來的資料分類邏輯完全不用改，直接套用原本的！
         rawExcelData.forEach(row => {
           const code = row[0];
           const name = row[1] + " (" + row[2] + ")";
@@ -141,7 +137,6 @@ const db = {};
           });
         });
 
-        // 將大區選項塞入下拉選單
         Object.keys(db).forEach(area => {
            const opt = document.createElement("option");
            opt.value = area;
@@ -149,67 +144,12 @@ const db = {};
            mainSelect.appendChild(opt);
         });
 
-        // 印出歷史紀錄
         renderHistory();
 
       } catch(error) {
         alert("❌ 載入藥品資料庫失敗，請檢查網路連線或稍後重試！");
         mainSelect.innerHTML = '<option value="" disabled selected>連線失敗，請重新整理網頁</option>';
       }
-    };
-
-    const db = {};
-    // 讀取手機本地的歷史紀錄，若無則為空陣列
-    let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
-
-    window.onload = function() {
-      rawExcelData.forEach(row => {
-        const code = row[0];
-        const name = row[1] + " (" + row[2] + ")";
-        const rawCabinet = String(row[4] || "").trim();
-        const rawSubAreas = [row[5], row[6]].map(s => String(s || "").trim()).filter(s => s !== "");
-        const rawMainAreas = [row[7], row[8]].map(s => String(s || "").trim()).filter(s => s !== "");
-
-        rawMainAreas.forEach(mainArea => {
-          if (!db[mainArea]) db[mainArea] = {};
-
-          if (mainArea === "中山") {
-             if (!db[mainArea]["中山藥局"]) db[mainArea]["中山藥局"] = {};
-             if (!db[mainArea]["中山藥局"]["全部品項"]) db[mainArea]["中山藥局"]["全部品項"] = [];
-             if (!db[mainArea]["中山藥局"]["全部品項"].some(d => d.code === code)) {
-               db[mainArea]["中山藥局"]["全部品項"].push({ code: code, name: name });
-             }
-          } else {
-             let subAreas = rawSubAreas.length > 0 ? rawSubAreas : ["未分類"];
-             subAreas.forEach(sub => {
-                let expandedSubs = [sub];
-                if (sub === "調劑檯") expandedSubs = ["調劑檯1", "調劑檯2", "調劑檯3"];
-
-                expandedSubs.forEach(finalSub => {
-                   let finalCabinet = rawCabinet;
-                   if (finalSub.includes("庫") || !finalCabinet) finalCabinet = "全部品項";
-
-                   if (!db[mainArea][finalSub]) db[mainArea][finalSub] = {};
-                   if (!db[mainArea][finalSub][finalCabinet]) db[mainArea][finalSub][finalCabinet] = [];
-                   if (!db[mainArea][finalSub][finalCabinet].some(d => d.code === code)) {
-                     db[mainArea][finalSub][finalCabinet].push({ code: code, name: name });
-                   }
-                });
-             });
-          }
-        });
-      });
-
-      const mainSelect = document.getElementById("main-area");
-      Object.keys(db).forEach(area => {
-         const opt = document.createElement("option");
-         opt.value = area;
-         opt.innerText = area;
-         mainSelect.appendChild(opt);
-      });
-
-      // 畫面載入時先印出歷史紀錄
-      renderHistory();
     };
 
     function updateSubArea() {
@@ -268,7 +208,6 @@ const db = {};
             const opt = document.createElement("option");
             opt.value = cab;
             
-            // 💡 檢查這個櫃位是否已經在歷史紀錄中點過了
             const deskString = mainArea + "-" + subArea;
             const isDone = localHistory.some(h => h.desk === deskString && h.loc === cab);
             opt.innerText = isDone ? cab + " ✅ (已盤)" : cab;
@@ -297,12 +236,10 @@ const db = {};
       
       const drugs = db[mainArea][subArea][cabinet] || [];
       
-      // 💡 抓取歷史紀錄，如果有盤過，就自動帶入上次輸入的數字
       const deskString = mainArea + "-" + subArea;
       const pastRecord = localHistory.find(h => h.desk === deskString && h.loc === cabinet);
       
       drugs.forEach(drug => {
-        // 尋找過去紀錄中這個藥品的數量
         let pastQty = "";
         if (pastRecord) {
             const pastItem = pastRecord.items.find(i => i.drugCode === drug.code);
@@ -320,18 +257,18 @@ const db = {};
       });
 
       document.getElementById("setup-section").classList.add("hidden");
-      document.getElementById("history-section").classList.add("hidden"); // 盤點時隱藏歷史
+      document.getElementById("history-section").classList.add("hidden");
       document.getElementById("inventory-section").classList.remove("hidden");
     }
-function submitData() {
-      const note = document.getElementById("cabinet-note").value; // 抓取備註內容
+
+    function submitData() {
+      const note = document.getElementById("cabinet-note").value; 
       const mainArea = document.getElementById("main-area").value;
       const subArea = document.getElementById("sub-area").value;
       const deskString = mainArea + "-" + subArea;
       const loc = document.getElementById("cabinet").value;
       const inputs = document.querySelectorAll("#drug-list input[type='number']");
       
-      // 💡 1. 取得「單藥覆盤模式」是否被勾選
       const isRecount = document.getElementById('recount-mode').checked;
 
       let itemsToSubmit = [];
@@ -341,9 +278,7 @@ function submitData() {
         const qty = input.value;
         if (qty === "") hasEmpty = true; 
         
-        // 💡 2. 根據模式決定要不要把資料加進包裹裡
         if (isRecount) {
-          // 【單藥覆盤】：只有「真的有輸入數字」的藥品，才加進去送出
           if (qty !== "") {
             itemsToSubmit.push({
               drugCode: input.getAttribute("data-code"),
@@ -352,7 +287,6 @@ function submitData() {
             });
           }
         } else {
-          // 【一般初盤】：全部都送出（如果遇到空白，自動當作 0 顆）
           itemsToSubmit.push({
             drugCode: input.getAttribute("data-code"),
             drugName: input.getAttribute("data-name"),
@@ -361,7 +295,6 @@ function submitData() {
         }
       });
 
-      // 💡 3. 防呆提示
       if (isRecount && itemsToSubmit.length === 0) {
         alert("⚠️ 覆盤模式下，請至少輸入一個要修改的藥品數量！");
         return;
@@ -378,7 +311,7 @@ function submitData() {
         location: loc,
         items: itemsToSubmit,
         mode: isRecount ? "partial" : "full",
-        note: note // 💡 將筆記傳給後臺
+        note: note
       };
 
       const btn = document.querySelector("button[onclick='submitData()']");
@@ -395,15 +328,13 @@ function submitData() {
         if (data.status === "success") {
           alert("✅ 送出成功！");
           
-          document.getElementById('cabinet-note').value = ''; // 送出成功後清空畫面的筆記
+          document.getElementById('cabinet-note').value = ''; 
           
-          // --- 💡 關鍵修復：更新本機歷史紀錄 ---
           const now = new Date();
           const timeString = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
           let existingIndex = localHistory.findIndex(h => h.desk === deskString && h.loc === loc);
           
           if (isRecount && existingIndex !== -1) {
-            // 覆盤模式：更新藥品數量，並「追加」或「更新」備註
             itemsToSubmit.forEach(newItem => {
               let itemIndex = localHistory[existingIndex].items.findIndex(i => i.drugCode === newItem.drugCode);
               if (itemIndex !== -1) {
@@ -412,7 +343,6 @@ function submitData() {
                 localHistory[existingIndex].items.push(newItem);
               }
             });
-            // 如果覆盤有寫新筆記，就串接在舊筆記後面
             if (note) {
               localHistory[existingIndex].note = localHistory[existingIndex].note ? (localHistory[existingIndex].note + " | " + note) : note;
             }
@@ -420,20 +350,18 @@ function submitData() {
             let updatedRecord = localHistory.splice(existingIndex, 1)[0];
             localHistory.unshift(updatedRecord);
           } else {
-            // 初盤模式：整櫃覆蓋，直接存入新紀錄與備註
             if (existingIndex !== -1) localHistory.splice(existingIndex, 1);
             localHistory.unshift({
               time: timeString,
               desk: deskString,
               loc: loc,
               items: itemsToSubmit,
-              note: note // 儲存備註到本機紀錄
+              note: note 
             });
           }
           
           localStorage.setItem("inventoryHistory", JSON.stringify(localHistory));
           
-          // 刷新畫面狀態
           renderHistory();   
           updateCabinet();   
           document.getElementById('recount-mode').checked = false; 
@@ -452,7 +380,7 @@ function submitData() {
         btn.disabled = false;
       });
     }
-  
+
     function backToSetup() {
       document.getElementById("setup-section").classList.remove("hidden");
       document.getElementById("history-section").classList.remove("hidden");
@@ -462,8 +390,7 @@ function submitData() {
       if(cabSelect.style.display !== 'none') cabSelect.value = ""; 
     }
 
-    // 💡 渲染歷史紀錄列表
-function renderHistory() {
+    function renderHistory() {
       const listDiv = document.getElementById("history-list");
       if (localHistory.length === 0) {
         listDiv.innerHTML = "尚無紀錄";
@@ -475,7 +402,6 @@ function renderHistory() {
         let details = record.items.map(i => `${i.drugName}: <span class="qty-highlight">${i.qty}</span>`).join('<br>');
         let locText = record.loc === "全部品項" ? "" : `- 櫃位 ${record.loc}`;
         
-        // 💡 檢查是否有備註，有的話就產生 HTML
         let noteHtml = record.note ? `<div style="color: #e74c3c; margin-top: 5px; font-weight: bold;">📝 筆記：${record.note}</div>` : "";
         
         html += `
@@ -491,15 +417,14 @@ function renderHistory() {
       listDiv.innerHTML = html;
     }
 
-    // 💡 清除歷史紀錄 (通常是隔天盤點前使用)
     function clearHistory() {
       if (confirm("確定要清除手機上的所有盤點紀錄嗎？(不會影響已經上傳到試算表的資料)")) {
         localStorage.removeItem("inventoryHistory");
         localHistory = [];
         renderHistory();
-        updateCabinet(); // 移除選單上的打勾勾
+        updateCabinet(); 
       }
     }
-  </script>
+ </script>
 </body>
 </html>
