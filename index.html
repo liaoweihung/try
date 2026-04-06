@@ -431,6 +431,7 @@ function submitData() {
         location: loc,
         items: itemsToSubmit,
         mode: isRecount ? "partial" : "full" 
+  note: note // 💡 新增這一行，把筆記傳給後臺
       };
 
       const btn = document.querySelector("button[onclick='submitData()']");
