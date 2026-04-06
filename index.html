@@ -430,8 +430,8 @@ function submitData() {
         desk: deskString,
         location: loc,
         items: itemsToSubmit,
-        mode: isRecount ? "partial" : "full" ,
-  note: note // 💡 新增這一行，把筆記傳給後臺
+        mode: isRecount ? "partial" : "full",
+        note: note // 💡 將筆記傳給後臺
       };
 
       const btn = document.querySelector("button[onclick='submitData()']");
@@ -445,11 +445,12 @@ function submitData() {
       })
       .then(response => response.json())
       .then(data => {
-if (data.status === "success") {
+        if (data.status === "success") {
           alert("✅ 送出成功！");
-          const note = document.getElementById('cabinet-note').value; // 取得目前的備註
-          document.getElementById('cabinet-note').value = ''; 
           
+          document.getElementById('cabinet-note').value = ''; // 送出成功後清空畫面的筆記
+          
+          // --- 💡 關鍵修復：更新本機歷史紀錄 ---
           const now = new Date();
           const timeString = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
           let existingIndex = localHistory.findIndex(h => h.desk === deskString && h.loc === loc);
@@ -472,62 +473,24 @@ if (data.status === "success") {
             let updatedRecord = localHistory.splice(existingIndex, 1)[0];
             localHistory.unshift(updatedRecord);
           } else {
-            // 初盤模式：直接存入新紀錄與備註
+            // 初盤模式：整櫃覆蓋，直接存入新紀錄與備註
             if (existingIndex !== -1) localHistory.splice(existingIndex, 1);
             localHistory.unshift({
               time: timeString,
               desk: deskString,
               loc: loc,
               items: itemsToSubmit,
-              note: note // 💡 儲存備註到本機紀錄
+              note: note // 儲存備註到本機紀錄
             });
           }
           
           localStorage.setItem("inventoryHistory", JSON.stringify(localHistory));
+          
+          // 刷新畫面狀態
           renderHistory();   
           updateCabinet();   
-          backToSetup();
-          // --- 💡 關鍵修復：更新本機歷史紀錄 ---
-          const now = new Date();
-          const timeString = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
-          let existingIndex = localHistory.findIndex(h => h.desk === deskString && h.loc === loc);
-          
-          if (isRecount && existingIndex !== -1) {
-            // 覆盤模式：找出舊紀錄，只替換這次有修改的藥品數量
-            itemsToSubmit.forEach(newItem => {
-              let itemIndex = localHistory[existingIndex].items.findIndex(i => i.drugCode === newItem.drugCode);
-              if (itemIndex !== -1) {
-                localHistory[existingIndex].items[itemIndex].qty = newItem.qty;
-              } else {
-                localHistory[existingIndex].items.push(newItem);
-              }
-            });
-            localHistory[existingIndex].time = timeString;
-            // 把更新過的紀錄拉到最上面
-            let updatedRecord = localHistory.splice(existingIndex, 1)[0];
-            localHistory.unshift(updatedRecord);
-          } else {
-            // 初盤模式：整櫃覆蓋，存入新紀錄
-            if (existingIndex !== -1) {
-              localHistory.splice(existingIndex, 1);
-            }
-            localHistory.unshift({
-              time: timeString,
-              desk: deskString,
-              loc: loc,
-              items: itemsToSubmit
-            });
-          }
-          
-          localStorage.setItem("inventoryHistory", JSON.stringify(localHistory));
-          renderHistory();   // 刷新下方的歷史紀錄畫面
-          updateCabinet();   // 讓選單出現 ✅ (已盤) 的勾勾
-          // ------------------------------------
-
           document.getElementById('recount-mode').checked = false; 
           document.getElementById('drug-list').innerHTML = ''; 
-          
-          // --- 💡 關鍵修復：呼叫正確的返回函數 ---
           backToSetup(); 
           
         } else {
