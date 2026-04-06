@@ -127,6 +127,7 @@ function renderTable() {
             <th style="width:15%">代碼</th>
             <th>藥品名稱 (中/英)</th>
             <th style="width:15%; text-align:center;">數量</th>
+            <th>備註</th>
           </tr>`;
       
       let displayCount = 0;
@@ -176,6 +177,7 @@ function renderTable() {
               <td style="font-family: monospace; color:#7f8c8d;">${drugCode}</td>
               <td><strong>${drugName}</strong></td>
               <td class="qty-cell">${qty}</td>
+              <td>${item["備註"] || ""}</td>
             </tr>
           `;
         }
