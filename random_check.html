@@ -4,10 +4,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>藥局抽盤系統</title>
   <style>
-    body { font-family: sans-serif; padding: 15px; background: #f9f9f9; }
+    body { font-family: sans-serif; padding: 15px; background: #f9f9f9; color: #333; }
     .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
     input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; font-size: 16px; border: 1px solid #ddd; border-radius: 5px; }
-    button { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 18px; }
+    button { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 18px; cursor: pointer; }
     .drug-name { font-weight: bold; color: #2c3e50; font-size: 18px; }
   </style>
 </head>
@@ -15,11 +15,15 @@
   <h2>🔎 今日抽盤任務</h2>
   
   <div class="card">
-    <label>選擇負責區域：</label>
-    <select id="loc-select" style="width:100%; padding:10px;" onchange="loadTasks()">
+    <label style="font-weight: bold; color: #2980b9;">1. 選擇負責區域：</label>
+    <select id="loc-select" style="width:100%; padding:10px; margin-top: 10px; font-size: 16px; border-radius: 5px;" onchange="loadTasks()">
       <option value="">-- 請選擇 --</option>
-      <option value="門診-調劑檯1">門診-調劑檯1</option>
+      <option value="門診-調劑檯">門診-調劑檯</option>
       <option value="門診-冰箱">門診-冰箱</option>
+      <option value="門診-水藥檯">門診-水藥檯</option>
+      <option value="門診-藥包機">門診-藥包機</option>
+      <option value="門診-管藥區">門診-管藥區</option>
+      <option value="中山-">中山-中山藥局</option>
     </select>
   </div>
 
@@ -27,56 +31,80 @@
   <button id="submit-btn" style="display:none;" onclick="submitData()">確認並上傳結果</button>
 
   <script>
-    const GAS_URL = "您的GAS部署網址";
+    // ⚠️ 請務必換成您最新的 GAS 網址！
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
     let currentTasks = [];
 
     async function loadTasks() {
       const loc = document.getElementById('loc-select').value;
-      const list = document.getElementById('task-list');
-      list.innerHTML = "載入中...";
-      
-      const res = await fetch(GAS_URL + "?action=getTodayTasks&location=" + loc);
-      currentTasks = await res.json();
-      
-      list.innerHTML = currentTasks.length ? "" : "此區域今日無任務 🎉";
-      document.getElementById('submit-btn').style.display = currentTasks.length ? "block" : "none";
+      if (!loc) return;
 
-      currentTasks.forEach(task => {
-        list.innerHTML += `
-          <div class="card" data-code="${task[1]}" data-name="${task[4]}">
-            <div class="drug-name">${task[4]}</div>
-            <div>代碼：${task[1]}</div>
-            <label>實盤數量：</label>
-            <input type="number" class="qty" placeholder="請輸入數量" inputmode="numeric">
-            <label>最舊效期：</label>
-            <input type="date" class="expiry">
-          </div>
-        `;
-      });
+      const list = document.getElementById('task-list');
+      list.innerHTML = "<div style='text-align:center; padding:20px;'>⏳ 努力載入中，請稍候...</div>";
+      document.getElementById('submit-btn').style.display = "none";
+      
+      try {
+        const res = await fetch(GAS_URL + "?action=getTodayTasks&location=" + loc);
+        currentTasks = await res.json();
+        
+        list.innerHTML = currentTasks.length ? "" : "<div style='text-align:center; padding:20px; color:#27ae60; font-weight:bold;'>此區域今日無任務 🎉</div>";
+        document.getElementById('submit-btn').style.display = currentTasks.length ? "block" : "none";
+
+        currentTasks.forEach(task => {
+          list.innerHTML += `
+            <div class="card" data-code="${task[1]}" data-name="${task[4]}">
+              <div class="drug-name">${task[4]}</div>
+              <div style="color: #7f8c8d; font-size: 14px; margin-bottom: 10px;">代碼：${task[1]}</div>
+              <label style="font-size: 14px; font-weight: bold;">實盤數量：</label>
+              <input type="number" class="qty" placeholder="請輸入數量" inputmode="numeric">
+              <label style="font-size: 14px; font-weight: bold;">最舊效期：</label>
+              <input type="date" class="expiry">
+            </div>
+          `;
+        });
+      } catch (error) {
+        list.innerHTML = "<div style='text-align:center; padding:20px; color:red;'>❌ 載入失敗！請檢查網址或重新整理網頁。</div>";
+      }
     }
 
     async function submitData() {
       const cards = document.querySelectorAll('#task-list .card');
       const items = [];
+      let hasEmptyQty = false;
+
       cards.forEach(c => {
+        const qty = c.querySelector('.qty').value;
+        if (qty === "") hasEmptyQty = true;
         items.push({
           code: c.dataset.code,
           name: c.dataset.name,
-          qty: c.querySelector('.qty').value,
+          qty: qty || 0,
           expiry: c.querySelector('.expiry').value
         });
       });
 
+      if (hasEmptyQty && !confirm("有藥品未輸入數量 (將視為 0)，確定要送出嗎？")) return;
+
+      const btn = document.getElementById('submit-btn');
+      btn.innerText = "資料傳送中...";
+      btn.disabled = true;
+
       const payload = {
         action: "submitRandomCheck",
         location: document.getElementById('loc-select').value,
-        user: "盤點同仁", // 之後可改為登入者姓名
+        user: "抽盤同仁", 
         items: items
       };
 
-      await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
-      alert("✅ 抽盤結果已成功上傳！");
-      location.reload();
+      try {
+        await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
+        alert("✅ 抽盤結果已成功上傳！");
+        location.reload();
+      } catch(error) {
+        alert("❌ 上傳失敗，請檢查網路！");
+        btn.innerText = "確認並上傳結果";
+        btn.disabled = false;
+      }
     }
   </script>
 </body>
