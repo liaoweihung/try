@@ -5,118 +5,149 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>主管審核報表 - 藥局抽盤系統</title>
   <style>
-    body { font-family: sans-serif; background-color: #f4f7f6; padding: 20px; color: #333; }
-    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    h2 { color: #2c3e50; text-align: center; }
+    body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 15px; color: #333; margin: 0; }
+    h2 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
+    .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; }
+    label { font-weight: bold; color: #2980b9; display: block; margin-bottom: 10px; }
+    select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; background: #fff; }
     
     /* 進度條樣式 */
-    .progress-container { margin-bottom: 20px; }
-    .progress-row { display: flex; align-items: center; margin-bottom: 10px; }
-    .progress-label { width: 150px; font-weight: bold; font-size: 14px; }
-    .progress-bar-bg { flex-grow: 1; background: #eee; height: 12px; border-radius: 6px; overflow: hidden; margin: 0 15px; }
-    .progress-bar-fill { background: #3498db; height: 100%; transition: width 0.5s; }
-    .progress-percent { width: 50px; text-align: right; font-size: 14px; color: #7f8c8d; }
+    .progress-item { margin-bottom: 15px; }
+    .progress-info { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; font-weight: bold; }
+    .progress-bg { background: #eee; height: 10px; border-radius: 5px; overflow: hidden; }
+    .progress-fill { background: #3498db; height: 100%; width: 0%; transition: width 0.6s ease; }
 
     /* 表格樣式 */
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th { background: #f8f9fa; padding: 12px; border: 1px solid #eee; text-align: left; font-size: 14px; color: #7f8c8d; }
-    td { padding: 12px; border: 1px solid #eee; font-size: 14px; }
-    tr:nth-child(even) { background: #fafafa; }
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th { background: #f8f9fa; padding: 12px; border: 1px solid #eee; text-align: left; font-size: 13px; color: #7f8c8d; }
+    td { padding: 12px; border: 1px solid #eee; font-size: 14px; vertical-align: top; }
+    .cabinet-tag { background: #e8f4fd; color: #2980b9; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
     .status-done { color: #27ae60; font-weight: bold; }
-    .status-wait { color: #e67e22; }
+    .status-wait { color: #e67e22; font-weight: bold; }
   </style>
 </head>
 <body>
 
-  <h2>📊 抽盤進度與結果核對</h2>
+  <h2>📊 抽盤結果審核報表</h2>
 
   <div class="card">
-    <label>📅 選擇審核日期：</label>
-    <input type="date" id="audit-date" style="padding:10px; border-radius:8px; border:1px solid #ccc;" onchange="loadAuditData()">
-    <button onclick="loadAuditData()" style="padding:10px 20px; background:#3498db; color:white; border:none; border-radius:8px; cursor:pointer; margin-left:10px;">更新報表</button>
+    <label>📅 請選擇審核日期 (僅顯示最近 5 筆任務)：</label>
+    <select id="date-select" onchange="loadAuditData()">
+      <option value="">⏳ 載入日期中...</option>
+    </select>
   </div>
 
   <div class="card">
-    <h3 style="margin-top:0;">📈 分區完成進度</h3>
-    <div id="progress-list" class="progress-container">
-      </div>
+    <label>📈 分區完成率 (%)</label>
+    <div id="progress-container">
+      <div style="text-align:center; color:#999; padding:10px;">請先選擇日期</div>
+    </div>
   </div>
 
-  <div class="card" style="overflow-x: auto;">
-    <h3 style="margin-top:0;">📋 盤點明細清單</h3>
-    <table id="result-table">
+  <div class="card table-container">
+    <label>📋 盤點明細清單</label>
+    <table>
       <thead>
         <tr>
           <th>位置 (大區-小區-櫃位)</th>
           <th>品名 (代碼)</th>
           <th>實盤數量</th>
           <th>最舊效期</th>
-          <th>盤點人</th>
+          <th>輸入日期 / 盤點人</th>
           <th>狀態</th>
         </tr>
       </thead>
       <tbody id="result-body">
-        </tbody>
+        <tr><td colspan="6" style="text-align:center; color:#999;">尚未載入資料</td></tr>
+      </tbody>
     </table>
   </div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
+    const GAS_URL = "您的GAS部署網址";
 
     window.onload = function() {
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById('audit-date').value = today;
-      loadAuditData();
+      fetchDates();
     };
 
+    // 1. 抓取最近 5 個有任務的日期
+    async function fetchDates() {
+      const select = document.getElementById('date-select');
+      try {
+        const res = await fetch(GAS_URL + "?action=getAvailableDates");
+        const dates = await res.json();
+        
+        if (dates.length === 0) {
+          select.innerHTML = '<option value="">目前尚無抽盤任務</option>';
+          return;
+        }
+
+        select.innerHTML = ''; // 移除載入中
+        dates.forEach((d, index) => {
+          const opt = document.createElement('option');
+          opt.value = d;
+          opt.textContent = d + (index === 0 ? " (最新)" : "");
+          select.appendChild(opt);
+        });
+        
+        loadAuditData(); // 自動載入最新一天的資料
+
+      } catch (e) { select.innerHTML = '<option value="">❌ 無法抓取日期</option>'; }
+    }
+
+    // 2. 彙整並渲染報表
     async function loadAuditData() {
-      const date = document.getElementById('audit-date').value;
-      const progressDiv = document.getElementById('progress-list');
+      const date = document.getElementById('date-select').value;
+      const progressContainer = document.getElementById('progress-container');
       const tableBody = document.getElementById('result-body');
       
-      progressDiv.innerHTML = "載入中...";
-      tableBody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>正在彙整資料...</td></tr>";
+      if (!date) return;
+
+      progressContainer.innerHTML = "正在計算完成率...";
+      tableBody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>正在比對雲端資料庫...</td></tr>";
 
       try {
-        // 同時抓取任務清單、紀錄、以及藥品主檔（為了櫃位資訊）
-        const [tasksRes, recordsRes, drugsRes] = await Promise.all([
+        // 同時抓取任務、紀錄、藥品主檔
+        const [tasks, records, drugs] = await Promise.all([
           fetch(`${GAS_URL}?action=getAuditTasks&date=${date}`).then(r => r.json()),
           fetch(`${GAS_URL}?action=getAuditRecords&date=${date}`).then(r => r.json()),
           fetch(`${GAS_URL}?action=getDrugs`).then(r => r.json())
         ]);
 
-        // 1. 處理進度條
-        renderProgress(tasksRes);
+        // 計算進度
+        renderProgress(tasks);
+        
+        // 渲染明細
+        renderTable(tasks, records, drugs);
 
-        // 2. 處理明細表 (將紀錄與任務合併)
-        renderTable(tasksRes, recordsRes, drugsRes);
-
-      } catch (error) {
-        progressDiv.innerHTML = "❌ 載入失敗";
-        tableBody.innerHTML = "<tr><td colspan='6' style='text-align:center; color:red;'>資料讀取錯誤</td></tr>";
+      } catch (e) {
+        progressContainer.innerHTML = "❌ 資料載入錯誤";
       }
     }
 
     function renderProgress(tasks) {
-      const container = document.getElementById('progress-list');
-      container.innerHTML = "";
-      
-      const summary = {};
+      const container = document.getElementById('progress-container');
+      const stats = {}; // 按區域統計
+
       tasks.forEach(t => {
-        const loc = t[2];
-        if (!summary[loc]) summary[loc] = { total: 0, done: 0 };
-        summary[loc].total++;
-        if (t[3] === "已完成") summary[loc].done++;
+        const area = t[2] || "未分類";
+        if (!stats[area]) stats[area] = { total: 0, done: 0 };
+        stats[area].total++;
+        if (t[3] === "已完成") stats[area].done++;
       });
 
-      Object.keys(summary).forEach(loc => {
-        const s = summary[loc];
+      container.innerHTML = "";
+      Object.keys(stats).sort().forEach(area => {
+        const s = stats[area];
         const percent = Math.round((s.done / s.total) * 100);
         container.innerHTML += `
-          <div class="progress-row">
-            <div class="progress-label">${loc}</div>
-            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${percent}%"></div></div>
-            <div class="progress-percent">${percent}%</div>
+          <div class="progress-item">
+            <div class="progress-info">
+              <span>${area}</span>
+              <span>${percent}% (${s.done}/${s.total})</span>
+            </div>
+            <div class="progress-bg"><div class="progress-fill" style="width:${percent}%"></div></div>
           </div>
         `;
       });
@@ -124,28 +155,27 @@
 
     function renderTable(tasks, records, drugs) {
       const body = document.getElementById('result-body');
+      const drugMap = {}; 
+      drugs.forEach(d => drugMap[d["藥品代碼"]] = d["櫃位"] || "-");
+
       body.innerHTML = "";
-
       tasks.forEach(task => {
-        const drugCode = task[1];
-        const loc = task[2];
+        const code = task[1];
+        const area = task[2];
         const status = task[3];
-        const drugName = task[4];
-        
-        // 找櫃位
-        const drugInfo = drugs.find(d => d["藥品代碼"] === drugCode);
-        const cabinet = drugInfo ? drugInfo["櫃位"] : "-";
+        const name = task[4];
+        const cabinet = drugMap[code] || "-";
 
-        // 找對應的盤點紀錄
-        const record = records.find(r => r["藥品代碼"] === drugCode && r["時間"].includes(task[0]));
+        // 從紀錄中尋找對應 (同一天同一個代碼)
+        const rec = records.find(r => r["藥品代碼"] === code);
 
         body.innerHTML += `
           <tr>
-            <td>${loc}-${cabinet}</td>
-            <td><strong>${drugName}</strong><br><small>${drugCode}</small></td>
-            <td style="text-align:center;">${record ? record["數量"] : "-"}</td>
-            <td>${record ? record["最舊效期"] : "-"}</td>
-            <td>${record ? record["盤點人"] : "-"}</td>
+            <td>${area}<br><span class="cabinet-tag">${cabinet}</span></td>
+            <td><strong>${name}</strong><br><small>${code}</small></td>
+            <td style="text-align:center; font-size:16px;">${rec ? rec["數量"] : "-"}</td>
+            <td>${rec ? rec["最舊效期"] : "-"}</td>
+            <td><small>${rec ? (rec["時間"] + " / " + rec["盤點人"]) : "-"}</small></td>
             <td class="${status === '已完成' ? 'status-done' : 'status-wait'}">${status}</td>
           </tr>
         `;
