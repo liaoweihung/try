@@ -11,7 +11,6 @@
     input, select { width: 100%; padding: 10px; margin: 5px 0 10px 0; box-sizing: border-box; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
     label { font-weight: bold; color: #2980b9; font-size: 14px; }
     button { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 20px;}
-    
     .task-card { border-left: 5px solid #3498db; }
     .drug-name { font-weight: bold; color: #2c3e50; font-size: 18px; }
     .cabinet-badge { background-color: #e8f4fd; color: #2980b9; padding: 2px 6px; border-radius: 10px; font-size: 12px; margin-left: 5px; }
@@ -21,7 +20,7 @@
   </style>
 </head>
 <body>
-  <h2>🔎 現場抽盤作業</h2>
+  <h2>🔎 現場抽盤作業 </h2>
   
   <div class="card">
     <div class="flex-row">
@@ -32,7 +31,7 @@
       <div>
         <label>📅 任務日期：</label>
         <select id="task-date" onchange="fetchTasks()">
-          <option value="">⏳ 載入任務日期中...</option>
+          <option value="">⏳ 載入中...</option>
         </select>
       </div>
     </div>
@@ -55,19 +54,17 @@
 
   <script>
     // ⚠️ 請在這裡替換成您最新的 GAS 網址
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
+    const GAS_URL = "您的GAS部署網址";
     
     let taskDB = {}; 
 
     window.onload = async function() {
       const savedName = localStorage.getItem("savedStaffName");
       if (savedName) document.getElementById('staff-name').value = savedName;
-      
       await fetchAvailableDates();
       loadRecentRecords();
     };
 
-    // 💡 取得時間戳記當作「快取破壞者」
     function getNoCacheUrl(baseAction) {
       return GAS_URL + "?action=" + baseAction + "&t=" + new Date().getTime();
     }
@@ -77,15 +74,13 @@
       try {
         const res = await fetch(getNoCacheUrl("getAvailableDates"));
         const dates = await res.json();
-        
         if (dates.length === 0) {
           dateSelect.innerHTML = '<option value="">🎉 目前全區無待辦任務</option>';
           return;
         }
-
         dateSelect.innerHTML = '<option value="">-- 請選擇任務日期 --</option>';
         dates.forEach(d => dateSelect.innerHTML += `<option value="${d}">${d}</option>`);
-      } catch (e) { dateSelect.innerHTML = '<option value="">❌ 載入日期失敗</option>'; }
+      } catch (e) { dateSelect.innerHTML = '<option value="">❌ 載入失敗</option>'; }
     }
 
     async function fetchTasks() {
@@ -101,7 +96,6 @@
       taskDB = {};
 
       try {
-        // 💡 每次抓任務都強迫瀏覽器抓最新的！
         const res = await fetch(getNoCacheUrl("getTasksByDate") + "&date=" + date);
         const allTasks = await res.json();
         
@@ -111,10 +105,14 @@
         }
 
         allTasks.forEach(task => {
-          if (!taskDB[task.mainArea]) taskDB[task.mainArea] = {};
-          if (!taskDB[task.mainArea][task.subArea]) taskDB[task.mainArea][task.subArea] = {};
-          if (!taskDB[task.mainArea][task.subArea][task.cabinet]) taskDB[task.mainArea][task.subArea][task.cabinet] = [];
-          taskDB[task.mainArea][task.subArea][task.cabinet].push(task);
+          const mArea = task.mainArea || "未知大區";
+          const sArea = task.subArea || "未分類";
+          const cab = task.cabinet || "未分類";
+
+          if (!taskDB[mArea]) taskDB[mArea] = {};
+          if (!taskDB[mArea][sArea]) taskDB[mArea][sArea] = {};
+          if (!taskDB[mArea][sArea][cab]) taskDB[mArea][sArea][cab] = [];
+          taskDB[mArea][sArea][cab].push(task);
         });
 
         mainSelect.innerHTML = '<option value="">-- 請選擇大區 --</option>';
@@ -127,10 +125,8 @@
       const main = document.getElementById("main-area").value;
       const subSelect = document.getElementById("sub-area");
       const cabSelect = document.getElementById("cabinet");
-      
       subSelect.innerHTML = '<option value="">-- 小區 (可不選) --</option>';
       cabSelect.innerHTML = '<option value="">-- 櫃位 (可不選) --</option>';
-      
       if (main && taskDB[main]) {
         subSelect.disabled = false;
         Object.keys(taskDB[main]).sort().forEach(s => subSelect.innerHTML += `<option value="${s}">${s}</option>`);
@@ -142,7 +138,6 @@
       const main = document.getElementById("main-area").value;
       const sub = document.getElementById("sub-area").value;
       const cabSelect = document.getElementById("cabinet");
-      
       cabSelect.innerHTML = '<option value="">-- 櫃位 (可不選) --</option>';
       if (main && sub && taskDB[main][sub]) {
         cabSelect.disabled = false;
