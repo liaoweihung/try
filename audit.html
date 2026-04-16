@@ -65,6 +65,7 @@
   </div>
 
   <script>
+    // ⚠️ 貼上您的 GAS 部署網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
 
     window.onload = function() {
@@ -83,7 +84,7 @@
           return;
         }
 
-        select.innerHTML = ''; // 移除載入中
+        select.innerHTML = ''; 
         dates.forEach((d, index) => {
           const opt = document.createElement('option');
           opt.value = d;
@@ -108,17 +109,13 @@
       tableBody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>正在比對雲端資料庫...</td></tr>";
 
       try {
-        // 同時抓取任務、紀錄、藥品主檔
         const [tasks, records, drugs] = await Promise.all([
           fetch(`${GAS_URL}?action=getAuditTasks&date=${date}`).then(r => r.json()),
           fetch(`${GAS_URL}?action=getAuditRecords&date=${date}`).then(r => r.json()),
           fetch(`${GAS_URL}?action=getDrugs`).then(r => r.json())
         ]);
 
-        // 計算進度
         renderProgress(tasks);
-        
-        // 渲染明細
         renderTable(tasks, records, drugs);
 
       } catch (e) {
@@ -128,7 +125,7 @@
 
     function renderProgress(tasks) {
       const container = document.getElementById('progress-container');
-      const stats = {}; // 按區域統計
+      const stats = {}; 
 
       tasks.forEach(t => {
         const area = t[2] || "未分類";
@@ -166,8 +163,8 @@
         const name = task[4];
         const cabinet = drugMap[code] || "-";
 
-        // 從紀錄中尋找對應 (同一天同一個代碼)
-        const rec = records.find(r => r["藥品代碼"] === code);
+        // 💡 雙重核對：代碼相同 且 (紀錄的區域和任務區域相同，或紀錄根本沒填區域的防呆)
+        const rec = records.find(r => r["藥品代碼"] === code && (r["盤點區域"] === area || r["盤點區域"] === ""));
 
         body.innerHTML += `
           <tr>
