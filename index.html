@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>藥局盤點整合系統 - 導覽目錄</title>
+  <style>
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      background-color: #f0f2f5; 
+      margin: 0; 
+      padding: 20px; 
+      color: #333; 
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .container {
+      max-width: 500px;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    h1 { text-align: center; color: #2c3e50; margin-bottom: 5px; }
+    p.subtitle { text-align: center; color: #7f8c8d; margin-bottom: 20px; }
+
+    .section-title {
+      color: #7f8c8d;
+      font-size: 16px;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #ddd;
+      font-weight: bold;
+    }
+
+    /* 目錄卡片樣式 */
+    .menu-card {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      padding: 15px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      margin-bottom: 15px;
+      text-decoration: none;
+      color: inherit;
+      border-left: 6px solid #ccc;
+      transition: all 0.2s ease;
+    }
+
+    /* 懸停與點擊特效 */
+    .menu-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+    }
+    .menu-card:active {
+      transform: translateY(0);
+    }
+
+    /* 顏色分類 */
+    .card-select { border-left-color: #3498db; } /* 藍色 */
+    .card-check { border-left-color: #27ae60; }  /* 綠色 */
+    .card-audit { border-left-color: #9b59b6; }  /* 紫色 */
+    .card-inventory { border-left-color: #e67e22; } /* 橘色 - 大盤點輸入 */
+    .card-report { border-left-color: #c0392b; }    /* 紅色 - 大盤點報表 */
+
+    .icon {
+      font-size: 28px;
+      margin-right: 15px;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .content h2 {
+      margin: 0 0 5px 0;
+      font-size: 18px;
+      color: #2c3e50;
+    }
+
+    .content p {
+      margin: 0;
+      font-size: 13px;
+      color: #7f8c8d;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>🏥 藥局盤點整合系統</h1>
+    <p class="subtitle">請選擇您要執行的作業項目</p>
+
+    <div class="section-title">🔎 日常抽盤作業 (Cycle Count)</div>
+
+    <a href="select.html" class="menu-card card-select">
+      <div class="icon">📋</div>
+      <div class="content">
+        <h2>1. 主管派案中心</h2>
+        <p>設定抽盤日期，發佈各區特定藥品任務。</p>
+      </div>
+    </a>
+
+    <a href="check.html" class="menu-card card-check">
+      <div class="icon">📱</div>
+      <div class="content">
+        <h2>2. 同仁抽盤輸入</h2>
+        <p>領取區域任務，輸入實盤數量與最舊效期。</p>
+      </div>
+    </a>
+
+    <a href="audit.html" class="menu-card card-audit">
+      <div class="icon">📊</div>
+      <div class="content">
+        <h2>3. 抽盤審核報表</h2>
+        <p>即時監控進度，比對數量與近效期異常。</p>
+      </div>
+    </a>
+
+
+    <div class="section-title">📦 全院大盤點作業 (Full Inventory)</div>
+
+    <a href="inventory.html" class="menu-card card-inventory">
+      <div class="icon">📝</div>
+      <div class="content">
+        <h2>A. 大盤點輸入端</h2>
+        <p>全區整櫃掃描輸入，支援併發寫入與覆盤模式。</p>
+      </div>
+    </a>
+
+    <a href="report.html" class="menu-card card-report">
+      <div class="icon">📈</div>
+      <div class="content">
+        <h2>B. 大盤點總表彙整</h2>
+        <p>自動產出分類總表，檢視全院庫存加總結果。</p>
+      </div>
+    </a>
+
+  </div>
+
+</body>
+</html>
