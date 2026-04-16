@@ -54,22 +54,28 @@
   </div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
+    // ⚠️ 請在這裡替換成您最新的 GAS 網址
+    const GAS_URL = "您的GAS部署網址";
+    
     let taskDB = {}; 
 
     window.onload = async function() {
       const savedName = localStorage.getItem("savedStaffName");
       if (savedName) document.getElementById('staff-name').value = savedName;
       
-      // 一載入就先去雲端問「哪幾天有任務」
       await fetchAvailableDates();
       loadRecentRecords();
     };
 
+    // 💡 取得時間戳記當作「快取破壞者」
+    function getNoCacheUrl(baseAction) {
+      return GAS_URL + "?action=" + baseAction + "&t=" + new Date().getTime();
+    }
+
     async function fetchAvailableDates() {
       const dateSelect = document.getElementById('task-date');
       try {
-        const res = await fetch(GAS_URL + "?action=getAvailableDates");
+        const res = await fetch(getNoCacheUrl("getAvailableDates"));
         const dates = await res.json();
         
         if (dates.length === 0) {
@@ -95,7 +101,8 @@
       taskDB = {};
 
       try {
-        const res = await fetch(`${GAS_URL}?action=getTasksByDate&date=${date}`);
+        // 💡 每次抓任務都強迫瀏覽器抓最新的！
+        const res = await fetch(getNoCacheUrl("getTasksByDate") + "&date=" + date);
         const allTasks = await res.json();
         
         if (allTasks.length === 0) {
@@ -168,7 +175,7 @@
       } else {
         displayTasks.forEach(task => {
           listDiv.innerHTML += `
-            <div class="card task-card" data-code="${task.code}" data-name="${task.name}">
+            <div class="card task-card" data-code="${task.code}" data-name="${task.name}" data-loc="${task.loc}">
               <div class="drug-name">${task.name} <span class="cabinet-badge">${task.cabinet}</span></div>
               <div style="color:#7f8c8d; font-size:12px; margin-bottom:8px;">代碼：${task.code}</div>
               <div class="flex-row">
@@ -189,7 +196,9 @@
       const items = [];
       document.querySelectorAll('.task-card').forEach(c => {
         items.push({
-          code: c.dataset.code, name: c.dataset.name,
+          code: c.dataset.code, 
+          name: c.dataset.name,
+          loc: c.dataset.loc,
           qty: c.querySelector('.qty').value || 0,
           expiry: c.querySelector('.expiry').value
         });
@@ -206,20 +215,20 @@
         const result = await res.json();
         if(result.status === "success") {
           alert("✅ 任務已成功上傳！");
-          document.getElementById('task-date').value = ""; // 清除選擇
-          await fetchAvailableDates(); // 重抓日期
+          document.getElementById('task-date').value = ""; 
+          await fetchAvailableDates(); 
           document.getElementById('task-list').innerHTML = "";
           btn.style.display = "none";
           loadRecentRecords();
         }
-      } catch(e) { alert("❌ 上傳失敗"); }
+      } catch(e) { alert("❌ 上傳失敗，請檢查網路！"); }
       btn.innerText = "✅ 確認上傳結果"; btn.disabled = false;
     }
 
     async function loadRecentRecords() {
       const div = document.getElementById('recent-list');
       try {
-        const res = await fetch(GAS_URL + "?action=getRecentRecords");
+        const res = await fetch(getNoCacheUrl("getRecentRecords"));
         const r = await res.json();
         div.innerHTML = r.length ? r.map(x => `<div class="history-item"><span>${x["時間"]}</span><span>${x["藥品名稱"]||x["藥品代碼"]} <b style="color:#e67e22;">(${x["數量"]})</b></span></div>`).join('') : "尚無紀錄";
       } catch (e) { div.innerHTML = "載入失敗"; }
