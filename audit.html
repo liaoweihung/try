@@ -164,7 +164,9 @@
         const cabinet = drugMap[code] || "-";
 
         // 💡 終極安全比對：因為 GAS 已經從最新一筆開始排，所以 .find() 找到的第一個就是「最後一次的盤點結果」
-        const rec = records.find(r => r["安全代碼"] === code && (r["安全區域"] === area || r["安全區域"] === ""));
+        const rec = records.find(r => r["安全代碼"] === code && (r["安全區域"] === area || r["安全區域"] === "")&&
+  getSafeDateStr(r["任務日期"]) === date // 💡 加上這行，確保日期完全吻合
+                                );
 
         body.innerHTML += `
           <tr>
