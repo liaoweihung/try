@@ -11,13 +11,11 @@
     label { font-weight: bold; color: #2980b9; display: block; margin-bottom: 10px; }
     select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; background: #fff; }
     
-    /* 進度條樣式 */
     .progress-item { margin-bottom: 15px; }
     .progress-info { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; font-weight: bold; }
     .progress-bg { background: #eee; height: 10px; border-radius: 5px; overflow: hidden; }
     .progress-fill { background: #3498db; height: 100%; width: 0%; transition: width 0.6s ease; }
 
-    /* 表格樣式 */
     .table-container { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; min-width: 600px; }
     th { background: #f8f9fa; padding: 12px; border: 1px solid #eee; text-align: left; font-size: 13px; color: #7f8c8d; }
@@ -54,7 +52,7 @@
           <th>品名 (代碼)</th>
           <th>實盤數量</th>
           <th>最舊效期</th>
-          <th>輸入日期 / 盤點人</th>
+          <th>輸入時間 / 盤點人</th>
           <th>狀態</th>
         </tr>
       </thead>
@@ -65,18 +63,21 @@
   </div>
 
   <script>
-    // ⚠️ 貼上您的 GAS 部署網址
+    // ⚠️ 貼上您的 GAS 部署網址 (務必是 /exec 結尾)
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
+
+    function getNoCacheUrl(baseAction) {
+      return GAS_URL + "?action=" + baseAction + "&t=" + new Date().getTime();
+    }
 
     window.onload = function() {
       fetchDates();
     };
 
-    // 1. 抓取最近 5 個有任務的日期
     async function fetchDates() {
       const select = document.getElementById('date-select');
       try {
-        const res = await fetch(GAS_URL + "?action=getAvailableDates");
+        const res = await fetch(getNoCacheUrl("getAvailableDates"));
         const dates = await res.json();
         
         if (dates.length === 0) {
@@ -92,12 +93,11 @@
           select.appendChild(opt);
         });
         
-        loadAuditData(); // 自動載入最新一天的資料
+        loadAuditData(); 
 
       } catch (e) { select.innerHTML = '<option value="">❌ 無法抓取日期</option>'; }
     }
 
-    // 2. 彙整並渲染報表
     async function loadAuditData() {
       const date = document.getElementById('date-select').value;
       const progressContainer = document.getElementById('progress-container');
@@ -110,9 +110,9 @@
 
       try {
         const [tasks, records, drugs] = await Promise.all([
-          fetch(`${GAS_URL}?action=getAuditTasks&date=${date}`).then(r => r.json()),
-          fetch(`${GAS_URL}?action=getAuditRecords&date=${date}`).then(r => r.json()),
-          fetch(`${GAS_URL}?action=getDrugs`).then(r => r.json())
+          fetch(getNoCacheUrl("getAuditTasks") + "&date=" + date).then(r => r.json()),
+          fetch(getNoCacheUrl("getAuditRecords") + "&date=" + date).then(r => r.json()),
+          fetch(getNoCacheUrl("getDrugs")).then(r => r.json())
         ]);
 
         renderProgress(tasks);
@@ -131,7 +131,7 @@
         const area = t[2] || "未分類";
         if (!stats[area]) stats[area] = { total: 0, done: 0 };
         stats[area].total++;
-        if (t[3] === "已完成") stats[area].done++;
+        if (String(t[3]).trim() === "已完成") stats[area].done++;
       });
 
       container.innerHTML = "";
@@ -153,26 +153,26 @@
     function renderTable(tasks, records, drugs) {
       const body = document.getElementById('result-body');
       const drugMap = {}; 
-      drugs.forEach(d => drugMap[d["藥品代碼"]] = d["櫃位"] || "-");
+      drugs.forEach(d => drugMap[String(d["藥品代碼"]).trim()] = d["櫃位"] || "-");
 
       body.innerHTML = "";
       tasks.forEach(task => {
-        const code = task[1];
-        const area = task[2];
-        const status = task[3];
+        const code = String(task[1]).trim();
+        const area = String(task[2]).trim();
+        const status = String(task[3]).trim();
         const name = task[4];
         const cabinet = drugMap[code] || "-";
 
-        // 💡 雙重核對：代碼相同 且 (紀錄的區域和任務區域相同，或紀錄根本沒填區域的防呆)
-        const rec = records.find(r => r["藥品代碼"] === code && (r["盤點區域"] === area || r["盤點區域"] === ""));
+        // 💡 終極安全比對：因為 GAS 已經從最新一筆開始排，所以 .find() 找到的第一個就是「最後一次的盤點結果」
+        const rec = records.find(r => r["安全代碼"] === code && (r["安全區域"] === area || r["安全區域"] === ""));
 
         body.innerHTML += `
           <tr>
             <td>${area}<br><span class="cabinet-tag">${cabinet}</span></td>
             <td><strong>${name}</strong><br><small>${code}</small></td>
-            <td style="text-align:center; font-size:16px;">${rec ? rec["數量"] : "-"}</td>
-            <td>${rec ? rec["最舊效期"] : "-"}</td>
-            <td><small>${rec ? (rec["時間"] + " / " + rec["盤點人"]) : "-"}</small></td>
+            <td style="text-align:center; font-size:16px;">${rec ? rec["安全數量"] : "-"}</td>
+            <td>${rec ? rec["安全效期"] : "-"}</td>
+            <td><small>${rec ? (rec["安全時間"] + " / " + rec["安全盤點人"]) : "-"}</small></td>
             <td class="${status === '已完成' ? 'status-done' : 'status-wait'}">${status}</td>
           </tr>
         `;
