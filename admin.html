@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>主管派案 - 藥局抽盤系統</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+    h2 { text-align: center; color: #2c3e50; }
+    .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    label { display: block; margin-bottom: 8px; font-weight: bold; color: #34495e; }
+    select, input[type="date"] { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+    
+    .btn { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+    .btn-primary { background-color: #3498db; color: white; }
+    .btn-success { background-color: #27ae60; color: white; }
+    .btn-outline { background-color: #fff; color: #3498db; border: 2px solid #3498db; padding: 10px; }
+    .btn:disabled { background-color: #95a5a6; cursor: not-allowed; }
+    
+    .drug-row { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; transition: background-color 0.2s; }
+    .drug-row:hover { background-color: #f8f9fa; }
+    .drug-row input[type="checkbox"] { transform: scale(1.5); margin-right: 15px; cursor: pointer; }
+    .drug-info { flex-grow: 1; cursor: pointer; }
+    .drug-name { font-size: 16px; font-weight: bold; color: #2c3e50; }
+    .drug-code { font-size: 13px; color: #7f8c8d; }
+    
+    .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #e8f4fd; padding: 10px; border-radius: 8px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <h2>📋 抽盤任務派發中心</h2>
+
+  <div class="card">
+    <label>1. 設定盤點日期：</label>
+    <input type="date" id="task-date">
+
+    <label>2. 選擇抽盤區域：</label>
+    <select id="location-select">
+      <option value="" disabled selected>請選擇要派案的區域...</option>
+      <optgroup label="門診區">
+        <option value="門診-調劑檯">門診 - 調劑檯</option>
+        <option value="門診-冰箱">門診 - 冰箱</option>
+        <option value="門診-水藥檯">門診 - 水藥檯</option>
+        <option value="門診-藥包機">門診 - 藥包機</option>
+        <option value="門診-點滴區">門診 - 點滴區</option>
+        <option value="門診-管藥區">門診 - 管藥區</option>
+        <option value="門診-專案區">門診 - 專案區</option>
+        <option value="門診-ADC">門診 - ADC</option>
+      </optgroup>
+      <optgroup label="中山區">
+        <option value="中山-">中山 - 中山藥局</option>
+      </optgroup>
+    </select>
+
+    <button class="btn btn-primary" id="load-btn" onclick="fetchDrugs()">📥 載入此區藥品清單</button>
+  </div>
+
+  <div id="drug-container" class="card hidden">
+    <div class="action-bar">
+      <span style="font-weight: bold; color: #2980b9;" id="list-title">區域藥品清單</span>
+      <div>
+        <button class="btn btn-outline" style="width: auto; margin: 0; padding: 5px 15px; font-size: 14px;" onclick="toggleAll(true)">全選</button>
+        <button class="btn btn-outline" style="width: auto; margin: 0; padding: 5px 15px; font-size: 14px; border-color: #e74c3c; color: #e74c3c;" onclick="toggleAll(false)">全不選</button>
+      </div>
+    </div>
+    
+    <div id="drug-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; margin-bottom: 15px;">
+      </div>
+
+    <button class="btn btn-success" id="publish-btn" onclick="publishTasks()">🚀 發佈勾選項目至今日任務</button>
+  </div>
+
+  <script>
+    // ⚠️ 貼上您的 GAS 部署網址
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
+
+    // 網頁載入時，自動將日期預設為「今天」
+    window.onload = function() {
+      const today = new Date();
+      // 轉換為 YYYY-MM-DD 格式 (適應台灣時區)
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      document.getElementById('task-date').value = `${year}-${month}-${day}`;
+    };
+
+    // 抓取特定區域的藥品
+    async function fetchDrugs() {
+      const loc = document.getElementById('location-select').value;
+      if (!loc) {
+        alert("請先選擇抽盤區域！");
+        return;
+      }
+
+      const btn = document.getElementById('load-btn');
+      btn.innerText = "⏳ 載入中...";
+      btn.disabled = true;
+
+      try {
+        const response = await fetch(GAS_URL + "?action=getDrugsByLoc&location=" + loc);
+        const drugs = await response.json();
+
+        const listDiv = document.getElementById('drug-list');
+        listDiv.innerHTML = "";
+
+        if (drugs.length === 0) {
+          listDiv.innerHTML = "<div style='padding: 20px; text-align: center; color: #7f8c8d;'>此區域目前查無藥品</div>";
+        } else {
+          drugs.forEach(drug => {
+            listDiv.innerHTML += `
+              <label class="drug-row">
+                <input type="checkbox" class="drug-checkbox" value="${drug.code}" data-name="${drug.name}">
+                <div class="drug-info">
+                  <div class="drug-name">${drug.name}</div>
+                  <div class="drug-code">代碼：${drug.code}</div>
+                </div>
+              </label>
+            `;
+          });
+        }
+
+        document.getElementById('list-title').innerText = `📍 ${document.getElementById('location-select').options[document.getElementById('location-select').selectedIndex].text}`;
+        document.getElementById('drug-container').classList.remove('hidden');
+
+      } catch (error) {
+        alert("❌ 載入失敗，請檢查網路連線。");
+      } finally {
+        btn.innerText = "📥 載入此區藥品清單";
+        btn.disabled = false;
+      }
+    }
+
+    // 全選 / 全不選 控制
+    function toggleAll(isCheck) {
+      const checkboxes = document.querySelectorAll('.drug-checkbox');
+      checkboxes.forEach(cb => cb.checked = isCheck);
+    }
+
+    // 將勾選的項目發佈到後臺
+    async function publishTasks() {
+      const date = document.getElementById('task-date').value;
+      const loc = document.getElementById('location-select').value;
+      const checkboxes = document.querySelectorAll('.drug-checkbox:checked');
+
+      if (!date) { alert("請選擇日期！"); return; }
+      if (checkboxes.length === 0) { alert("請至少勾選一項藥品！"); return; }
+
+      // 收集被勾選的藥品資料
+      const selectedDrugs = [];
+      checkboxes.forEach(cb => {
+        selectedDrugs.push({
+          code: cb.value,
+          name: cb.getAttribute('data-name')
+        });
+      });
+
+      const btn = document.getElementById('publish-btn');
+      btn.innerText = "資料傳送中...";
+      btn.disabled = true;
+
+      const payload = {
+        action: "setTasks",
+        date: date,
+        location: loc,
+        drugs: selectedDrugs
+      };
+
+      try {
+        const response = await fetch(GAS_URL, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+
+        if (result.status === "success") {
+          alert(`✅ 成功發佈 ${selectedDrugs.length} 項抽盤任務至【${loc}】！`);
+          toggleAll(false); // 發佈成功後自動取消勾選
+        } else {
+          alert("❌ 發佈失敗：" + result.message);
+        }
+      } catch (error) {
+        alert("❌ 網路錯誤，請檢查連線後重試！");
+      } finally {
+        btn.innerText = "🚀 發佈勾選項目至今日任務";
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
