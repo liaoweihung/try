@@ -3,208 +3,220 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>藥局抽盤系統 (同仁端)</title>
+  <title>同仁抽盤 - 藥局抽盤系統</title>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background: #f0f2f5; color: #333; margin: 0; }
+    body { font-family: 'Segoe UI', sans-serif; padding: 15px; background: #f0f2f5; color: #333; margin: 0; }
     h2 { text-align: center; color: #2c3e50; margin-top: 5px; }
     .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
-    input, select { width: 100%; padding: 12px; margin: 8px 0 15px 0; box-sizing: border-box; font-size: 16px; border: 1px solid #ccc; border-radius: 8px; }
-    label { font-weight: bold; color: #2980b9; font-size: 15px; }
+    input, select { width: 100%; padding: 10px; margin: 5px 0 10px 0; box-sizing: border-box; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
+    label { font-weight: bold; color: #2980b9; font-size: 14px; }
+    button { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; margin-bottom: 20px;}
     
-    button { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; cursor: pointer; margin-bottom: 20px;}
-    button:disabled { background: #95a5a6; cursor: not-allowed; }
-    
+    .task-card { border-left: 5px solid #3498db; }
     .drug-name { font-weight: bold; color: #2c3e50; font-size: 18px; }
-    .drug-code { color: #7f8c8d; font-size: 14px; margin-bottom: 10px; }
+    .cabinet-badge { background-color: #e8f4fd; color: #2980b9; padding: 2px 6px; border-radius: 10px; font-size: 12px; margin-left: 5px; }
     
-    /* 歷史紀錄樣式 */
-    .history-box { background: #fff; border-radius: 10px; padding: 15px; box-shadow: inset 0 0 5px rgba(0,0,0,0.05); }
-    .history-item { border-bottom: 1px dashed #eee; padding: 10px 0; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
-    .history-item:last-child { border-bottom: none; }
-    .history-time { color: #7f8c8d; font-size: 12px; min-width: 80px; }
-    .history-detail { flex-grow: 1; padding-left: 10px; }
-    .history-user { background: #e8f4fd; color: #2980b9; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-left: 5px; }
+    .flex-row { display: flex; gap: 10px; }
+    .flex-row > div { flex: 1; }
+    .history-item { border-bottom: 1px dashed #eee; padding: 8px 0; font-size: 13px; display: flex; justify-content: space-between; }
   </style>
 </head>
 <body>
-  <h2>🔎 抽盤作業</h2>
+  <h2>🔎 現場抽盤作業</h2>
   
   <div class="card">
-    <label>👤 1. 盤點人員姓名：</label>
-    <input type="text" id="staff-name" placeholder="請輸入您的姓名 (必填)">
+    <div class="flex-row">
+      <div>
+        <label>👤 盤點人：</label>
+        <input type="text" id="staff-name" placeholder="姓名">
+      </div>
+      <div>
+        <label>📅 任務日期：</label>
+        <input type="date" id="task-date" onchange="fetchTasks()">
+      </div>
+    </div>
 
-    <label>📅 2. 選擇任務日期：</label>
-    <input type="date" id="task-date" onchange="loadTasks()">
-
-    <label>📍 3. 選擇負責區域：</label>
-    <select id="loc-select" onchange="loadTasks()">
-      <option value="">-- 請先選擇區域 --</option>
-      <option value="門診-調劑檯">門診-調劑檯</option>
-      <option value="門診-冰箱">門診-冰箱</option>
-      <option value="門診-水藥檯">門診-水藥檯</option>
-      <option value="門診-藥包機">門診-藥包機</option>
-      <option value="門診-管藥區">門診-管藥區</option>
-      <option value="中山-">中山-中山藥局</option>
-    </select>
+    <label style="margin-top:10px;">📍 選擇任務區域 (由大到小)：</label>
+    <div class="flex-row">
+      <div><select id="main-area" onchange="updateSubArea()"><option value="">⏳ 載入任務中...</option></select></div>
+      <div><select id="sub-area" onchange="updateCabinet()" disabled><option value="">-- 小區 --</option></select></div>
+    </div>
+    <select id="cabinet" onchange="renderTasks()" disabled><option value="">-- 櫃位 (可不選) --</option></select>
   </div>
 
   <div id="task-list"></div>
-  <button id="submit-btn" style="display:none;" onclick="submitData()">確認並上傳結果</button>
+  <button id="submit-btn" style="display:none;" onclick="submitData()">✅ 確認上傳結果</button>
 
   <div class="card" id="recent-section">
-    <h3 style="color: #2c3e50; margin-top: 0; font-size: 16px;">🕒 雲端最新上傳紀錄 (全區前 10 筆)</h3>
-    <div class="history-box" id="recent-list">
-      <div style="text-align:center; color:#999; padding:10px;">載入中...</div>
-    </div>
+    <h3 style="margin-top: 0; font-size: 15px; color:#7f8c8d;">🕒 雲端最新上傳紀錄</h3>
+    <div id="recent-list" style="color:#999;">載入中...</div>
   </div>
 
   <script>
-    // ⚠️ 貼上您最新的 GAS 部署網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
-    let currentTasks = [];
+    let taskDB = {}; 
+    let allTasks = []; 
 
     window.onload = function() {
-      // 1. 預設日期為今天
       const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      document.getElementById('task-date').value = `${year}-${month}-${day}`;
-
-      // 2. 記住上次輸入的名字 (貼心小功能)
+      document.getElementById('task-date').value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
       const savedName = localStorage.getItem("savedStaffName");
       if (savedName) document.getElementById('staff-name').value = savedName;
-
-      // 3. 載入最新紀錄
+      
+      fetchTasks();
       loadRecentRecords();
     };
 
-    // 抓取任務 (同時綁定日期與區域)
-    async function loadTasks() {
-      const loc = document.getElementById('loc-select').value;
+    // 1. 從雲端抓取指定日期的所有任務
+    async function fetchTasks() {
       const date = document.getElementById('task-date').value;
-      if (!loc || !date) return;
-
-      const list = document.getElementById('task-list');
-      list.innerHTML = "<div style='text-align:center; padding:20px;'>⏳ 努力載入中...</div>";
+      const mainSelect = document.getElementById('main-area');
+      mainSelect.innerHTML = '<option value="">⏳ 抓取任務中...</option>';
+      document.getElementById('task-list').innerHTML = "";
       document.getElementById('submit-btn').style.display = "none";
-      
-      try {
-        const res = await fetch(`${GAS_URL}?action=getTasksByDate&location=${loc}&date=${date}`);
-        currentTasks = await res.json();
-        
-        if (currentTasks.length === 0) {
-          list.innerHTML = "<div class='card' style='text-align:center; color:#27ae60; font-weight:bold;'>此區域指定日期無任務 🎉</div>";
-        } else {
-          list.innerHTML = "";
-          currentTasks.forEach(task => {
-            list.innerHTML += `
-              <div class="card task-card" data-code="${task[1]}" data-name="${task[4]}">
-                <div class="drug-name">${task[4]}</div>
-                <div class="drug-code">代碼：${task[1]}</div>
-                <label>實盤數量：</label>
-                <input type="number" class="qty" placeholder="請輸入數量" inputmode="numeric">
-                <label>最舊效期：</label>
-                <input type="date" class="expiry">
-              </div>
-            `;
-          });
-          document.getElementById('submit-btn').style.display = "block";
-        }
-      } catch (error) {
-        list.innerHTML = "<div class='card' style='text-align:center; color:red;'>❌ 載入失敗！請檢查網路。</div>";
-      }
-    }
+      taskDB = {};
 
-    // 抓取最新十筆紀錄
-    async function loadRecentRecords() {
-      const recentList = document.getElementById('recent-list');
       try {
-        const res = await fetch(GAS_URL + "?action=getRecentRecords");
-        const records = await res.json();
+        const res = await fetch(`${GAS_URL}?action=getTasksByDate&date=${date}`);
+        allTasks = await res.json();
         
-        if (records.length === 0) {
-          recentList.innerHTML = "<div style='text-align:center; color:#999;'>尚無盤點紀錄</div>";
+        if (allTasks.length === 0) {
+          mainSelect.innerHTML = '<option value="">此日期無待辦任務 🎉</option>';
+          document.getElementById('sub-area').disabled = true;
+          document.getElementById('cabinet').disabled = true;
           return;
         }
 
-        let html = "";
-        records.forEach(r => {
-          html += `
-            <div class="history-item">
-              <div class="history-time">${r["時間"]}</div>
-              <div class="history-detail">
-                <strong>${r["藥品名稱"] || r["藥品代碼"]}</strong> 
-                <span style="color:#e67e22;">(${r["數量"]}顆)</span>
-                <span class="history-user">${r["盤點人"]}</span>
-              </div>
-            </div>
-          `;
+        // 把抓回來的任務組成階層 taskDB[大區][小區][櫃位] = [任務]
+        allTasks.forEach(task => {
+          if (!taskDB[task.mainArea]) taskDB[task.mainArea] = {};
+          if (!taskDB[task.mainArea][task.subArea]) taskDB[task.mainArea][task.subArea] = {};
+          if (!taskDB[task.mainArea][task.subArea][task.cabinet]) taskDB[task.mainArea][task.subArea][task.cabinet] = [];
+          taskDB[task.mainArea][task.subArea][task.cabinet].push(task);
         });
-        recentList.innerHTML = html;
-      } catch (error) {
-        recentList.innerHTML = "<div style='text-align:center; color:red;'>無法取得最新紀錄</div>";
+
+        mainSelect.innerHTML = '<option value="">-- 請選擇大區 --</option>';
+        Object.keys(taskDB).sort().forEach(m => mainSelect.innerHTML += `<option value="${m}">${m}</option>`);
+        
+      } catch (e) {
+        mainSelect.innerHTML = '<option value="">❌ 載入失敗</option>';
       }
     }
 
-    // 上傳資料
+    // 2. 選單連動邏輯
+    function updateSubArea() {
+      const main = document.getElementById("main-area").value;
+      const subSelect = document.getElementById("sub-area");
+      const cabSelect = document.getElementById("cabinet");
+      
+      subSelect.innerHTML = '<option value="">-- 小區 (可不選) --</option>';
+      cabSelect.innerHTML = '<option value="">-- 櫃位 (可不選) --</option>';
+      
+      if (main && taskDB[main]) {
+        subSelect.disabled = false;
+        Object.keys(taskDB[main]).sort().forEach(s => subSelect.innerHTML += `<option value="${s}">${s}</option>`);
+      } else {
+        subSelect.disabled = true; cabSelect.disabled = true;
+      }
+      renderTasks();
+    }
+
+    function updateCabinet() {
+      const main = document.getElementById("main-area").value;
+      const sub = document.getElementById("sub-area").value;
+      const cabSelect = document.getElementById("cabinet");
+      
+      cabSelect.innerHTML = '<option value="">-- 櫃位 (可不選) --</option>';
+      if (main && sub && taskDB[main][sub]) {
+        cabSelect.disabled = false;
+        Object.keys(taskDB[main][sub]).sort().forEach(c => cabSelect.innerHTML += `<option value="${c}">${c}</option>`);
+      } else {
+        cabSelect.disabled = true;
+      }
+      renderTasks();
+    }
+
+    // 3. 渲染過濾後的任務卡片
+    function renderTasks() {
+      const main = document.getElementById("main-area").value;
+      const sub = document.getElementById("sub-area").value;
+      const cab = document.getElementById("cabinet").value;
+      const listDiv = document.getElementById("task-list");
+      
+      if (!main) { 
+        listDiv.innerHTML = ""; 
+        document.getElementById('submit-btn').style.display = "none";
+        return; 
+      }
+      
+      let displayTasks = [];
+      Object.keys(taskDB[main]).forEach(s => {
+        if (!sub || s === sub) {
+          Object.keys(taskDB[main][s]).forEach(c => {
+            if (!cab || c === cab) displayTasks = displayTasks.concat(taskDB[main][s][c]);
+          });
+        }
+      });
+
+      listDiv.innerHTML = "";
+      if (displayTasks.length === 0) {
+        listDiv.innerHTML = "<div style='text-align:center; padding:15px; color:#999;'>此階層無任務</div>";
+        document.getElementById('submit-btn').style.display = "none";
+      } else {
+        displayTasks.forEach(task => {
+          listDiv.innerHTML += `
+            <div class="card task-card" data-code="${task.code}" data-name="${task.name}">
+              <div class="drug-name">${task.name} <span class="cabinet-badge">${task.cabinet}</span></div>
+              <div style="color:#7f8c8d; font-size:12px; margin-bottom:8px;">代碼：${task.code}</div>
+              <div class="flex-row">
+                <div><label>實盤數量：</label><input type="number" class="qty" placeholder="數量" inputmode="numeric"></div>
+                <div><label>最舊效期：</label><input type="date" class="expiry"></div>
+              </div>
+            </div>`;
+        });
+        document.getElementById('submit-btn').style.display = "block";
+      }
+    }
+
     async function submitData() {
       const staffName = document.getElementById('staff-name').value.trim();
-      if (!staffName) { alert("⚠️ 請務必輸入盤點人員姓名！"); return; }
-      
-      // 儲存名字到手機，下次就不用重打
+      if (!staffName) { alert("請輸入盤點人姓名！"); return; }
       localStorage.setItem("savedStaffName", staffName);
 
-      const cards = document.querySelectorAll('.task-card');
       const items = [];
-      let hasEmptyQty = false;
-
-      cards.forEach(c => {
-        const qty = c.querySelector('.qty').value;
-        if (qty === "") hasEmptyQty = true;
+      document.querySelectorAll('.task-card').forEach(c => {
         items.push({
-          code: c.dataset.code,
-          name: c.dataset.name,
-          qty: qty || 0,
+          code: c.dataset.code, name: c.dataset.name,
+          qty: c.querySelector('.qty').value || 0,
           expiry: c.querySelector('.expiry').value
         });
       });
 
-      if (hasEmptyQty && !confirm("有藥品未輸入數量 (將視為 0)，確定要送出嗎？")) return;
-
       const btn = document.getElementById('submit-btn');
-      btn.innerText = "資料傳送中...";
-      btn.disabled = true;
-
-      const payload = {
-        action: "submitRandomCheck",
-        date: document.getElementById('task-date').value,
-        location: document.getElementById('loc-select').value,
-        user: staffName, 
-        items: items
-      };
+      btn.innerText = "上傳中..."; btn.disabled = true;
 
       try {
-        const res = await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
+        const res = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({
+          action: "submitRandomCheck", date: document.getElementById('task-date').value,
+          user: staffName, items: items
+        })});
         const result = await res.json();
-        
         if(result.status === "success") {
-          alert("✅ 抽盤結果已成功上傳！");
-          // 重新整理畫面
-          document.getElementById('task-list').innerHTML = "";
-          btn.style.display = "none";
-          loadTasks(); // 重新檢查是否還有漏掉的任務
-          loadRecentRecords(); // 刷新下方的十筆紀錄
-        } else {
-          alert("❌ 上傳失敗：" + result.message);
-          btn.innerText = "確認並上傳結果";
-          btn.disabled = false;
+          alert("✅ 任務已成功上傳！");
+          fetchTasks(); // 重新整理任務狀態
+          loadRecentRecords();
         }
-      } catch(error) {
-        alert("❌ 上傳失敗，請檢查網路連線！");
-        btn.innerText = "確認並上傳結果";
-        btn.disabled = false;
-      }
+      } catch(e) { alert("❌ 上傳失敗"); }
+      btn.innerText = "✅ 確認上傳結果"; btn.disabled = false;
+    }
+
+    async function loadRecentRecords() {
+      const div = document.getElementById('recent-list');
+      try {
+        const res = await fetch(GAS_URL + "?action=getRecentRecords");
+        const r = await res.json();
+        div.innerHTML = r.length ? r.map(x => `<div class="history-item"><span>${x["時間"]}</span><span>${x["藥品名稱"]||x["藥品代碼"]} <b style="color:#e67e22;">(${x["數量"]})</b></span></div>`).join('') : "尚無紀錄";
+      } catch (e) { div.innerHTML = "載入失敗"; }
     }
   </script>
 </body>
