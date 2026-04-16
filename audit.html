@@ -77,7 +77,7 @@
     async function fetchDates() {
       const select = document.getElementById('date-select');
       try {
-        const res = await fetch(getNoCacheUrl("getAvailableDates"));
+        const res = await fetch(getNoCacheUrl("getAuditDates"));
         const dates = await res.json();
         
         if (dates.length === 0) {
