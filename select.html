@@ -15,13 +15,22 @@
     .btn-outline { background-color: #fff; color: #3498db; border: 1px solid #3498db; padding: 5px 10px; border-radius: 4px; font-size: 14px;}
     
     .drug-row { display: flex; align-items: flex-start; padding: 12px; border-bottom: 1px solid #eee; }
-    .drug-row input[type="checkbox"] { transform: scale(1.3); margin-right: 15px; margin-top: 5px;}
+    .drug-row input[type="checkbox"] { transform: scale(1.3); margin-right: 15px; margin-top: 5px; cursor: pointer;}
     .drug-name { font-size: 16px; font-weight: bold; color: #2c3e50; margin-bottom: 4px;}
     .drug-code { font-size: 13px; color: #7f8c8d; margin-bottom: 2px;}
     .drug-generic { font-size: 13px; color: #95a5a6; }
     .cabinet-badge { background-color: #e8f4fd; color: #2980b9; padding: 2px 6px; border-radius: 10px; font-size: 12px; margin-left: 5px; }
+    
     .flex-row { display: flex; gap: 10px; }
     .flex-row > div { flex: 1; }
+
+    /* 💡 新增：已選清單（購物車）的樣式 */
+    .cart-container { background: #fdfefe; border: 2px dashed #bdc3c7; border-radius: 8px; padding: 10px; margin-bottom: 15px; min-height: 50px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .cart-tag { background: #3498db; color: white; padding: 5px 10px; border-radius: 15px; font-size: 13px; display: flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    .cart-tag span { cursor: pointer; font-weight: bold; background: rgba(255,255,255,0.2); border-radius: 50%; width: 16px; height: 16px; display: inline-flex; justify-content: center; align-items: center; }
+    .cart-tag span:hover { background: rgba(255,255,255,0.5); }
+    .cart-empty { color: #95a5a6; font-size: 14px; width: 100%; text-align: center; margin-top: 10px; }
+    .cart-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px; }
   </style>
 </head>
 <body>
@@ -41,22 +50,31 @@
 
   <div id="drug-container" class="card" style="display:none;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-      <label style="margin: 0;">🔎 3. 勾選藥品發佈：</label>
+      <label style="margin: 0;">🔎 3. 挑選藥品：</label>
       <div>
-        <button class="btn-outline" onclick="toggleAll(true)">全選</button>
-        <button class="btn-outline" style="border-color:#e74c3c; color:#e74c3c;" onclick="toggleAll(false)">清空</button>
+        <button class="btn-outline" onclick="toggleAll(true)">全選本區</button>
+        <button class="btn-outline" style="border-color:#e74c3c; color:#e74c3c;" onclick="toggleAll(false)">清空本區</button>
       </div>
     </div>
     <input type="text" id="search-box" placeholder="🔍 搜尋中/英文名、代碼或學名..." oninput="filterDrugs()">
     
-    <div id="drug-list" style="max-height: 380px; overflow-y: auto; border: 1px solid #eee; border-radius: 5px; margin-bottom: 15px;"></div>
+    <div id="drug-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 5px; margin-bottom: 15px;"></div>
     
-    <button class="btn btn-success" id="publish-btn" onclick="publishTasks()">🚀 發佈勾選項目至任務</button>
+    <div class="cart-header">
+      <label style="margin: 0; color: #27ae60;">🛒 4. 已選任務清單：</label>
+      <span id="cart-count" style="font-size:14px; font-weight:bold; color:#27ae60;">共 0 項</span>
+    </div>
+    <div id="cart-container" class="cart-container">
+      <div class="cart-empty">尚未選擇任何藥品</div>
+    </div>
+
+    <button class="btn btn-success" id="publish-btn" onclick="publishTasks()" disabled>🚀 發佈已選項目至任務</button>
   </div>
 
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
     let db = {}; 
+    let selectedItems = new Map(); // 💡 核心記憶體：用來記住跨區打勾的藥品 (Key: 代碼, Value: 藥名)
 
     window.onload = async function() {
       const today = new Date();
@@ -66,14 +84,10 @@
         const res = await fetch(GAS_URL + "?action=getDrugs");
         const rawData = await res.json();
         
-        // 💡 升級：同時處理 大區1/小區1 與 大區2/小區2
         rawData.forEach(row => {
           const drug = {
-            code: row["藥品代碼"] || "",
-            cName: row["中文商品名"] || "",
-            eName: row["英文商品名"] || "",
-            gName: row["學名"] || "",
-            cabinet: String(row["櫃位"] || "未分類").trim()
+            code: row["藥品代碼"] || "", cName: row["中文商品名"] || "", eName: row["英文商品名"] || "",
+            gName: row["學名"] || "", cabinet: String(row["櫃位"] || "未分類").trim()
           };
 
           const addRoute = (m, s) => {
@@ -87,7 +101,6 @@
           };
 
           addRoute(row["大區1"], row["小區1"]);
-          // 如果大區2存在且跟大區1不同，就再加一次路由 (一顆藥可以出現在兩個地方！)
           if (row["大區2"] && (row["大區1"] !== row["大區2"] || row["小區1"] !== row["小區2"])) {
             addRoute(row["大區2"], row["小區2"]);
           }
@@ -147,21 +160,22 @@
         }
       });
 
-      // 畫面渲染：顯示四種詳細資訊
       listDiv.innerHTML = ""; document.getElementById('search-box').value = "";
       if (displayDrugs.length === 0) {
         listDiv.innerHTML = "<div style='padding:15px; text-align:center; color:#999;'>此條件下無藥品</div>";
       } else {
-        // 去除重複顯示的藥品
         const seen = new Set();
         displayDrugs.forEach(drug => {
           if(!seen.has(drug.code)) {
             seen.add(drug.code);
-            // 將中文名作為傳送給GAS的標籤名
             const displayName = drug.cName || drug.eName || drug.code; 
+            
+            // 💡 渲染時檢查是否已經被選過，如果有，自動打勾！
+            const isChecked = selectedItems.has(drug.code) ? "checked" : "";
+
             listDiv.innerHTML += `
               <label class="drug-row">
-                <input type="checkbox" class="drug-checkbox" value="${drug.code}" data-name="${displayName}">
+                <input type="checkbox" class="drug-checkbox" value="${drug.code}" data-name="${displayName}" onchange="handleCheckbox(this)" ${isChecked}>
                 <div style="flex-grow:1;">
                   <div class="drug-name">${drug.cName} <span class="cabinet-badge">${drug.cabinet}</span></div>
                   <div class="drug-code">代碼：${drug.code} | 英文：${drug.eName}</div>
@@ -173,7 +187,6 @@
       }
     }
 
-    // 💡 搜尋過濾：因為所有文字都在 row.innerText，所以這行會自動搜尋四個欄位！
     function filterDrugs() {
       const kw = document.getElementById('search-box').value.toLowerCase();
       document.querySelectorAll('.drug-row').forEach(row => {
@@ -181,23 +194,74 @@
       });
     }
 
+    // 💡 處理打勾與取消打勾的動作
+    function handleCheckbox(checkbox) {
+      const code = checkbox.value;
+      const name = checkbox.getAttribute('data-name');
+      
+      if (checkbox.checked) {
+        selectedItems.set(code, name);
+      } else {
+        selectedItems.delete(code);
+      }
+      renderCart(); // 更新購物車畫面
+    }
+
     function toggleAll(check) {
       document.querySelectorAll('.drug-row').forEach(row => {
-        if (row.style.display !== "none") row.querySelector('.drug-checkbox').checked = check;
+        if (row.style.display !== "none") {
+          const cb = row.querySelector('.drug-checkbox');
+          cb.checked = check;
+          handleCheckbox(cb); // 同步更新記憶體
+        }
       });
+    }
+
+    // 💡 處理在購物車點「X」刪除的動作
+    function removeFromCart(code) {
+      selectedItems.delete(code);
+      // 如果這個藥品剛好在目前的畫面上，把它取消打勾
+      const cb = document.querySelector(`.drug-checkbox[value="${code}"]`);
+      if (cb) cb.checked = false;
+      
+      renderCart();
+    }
+
+    // 💡 繪製購物車與更新狀態
+    function renderCart() {
+      const cartDiv = document.getElementById('cart-container');
+      const countSpan = document.getElementById('cart-count');
+      const publishBtn = document.getElementById('publish-btn');
+      
+      cartDiv.innerHTML = "";
+      
+      if (selectedItems.size === 0) {
+        cartDiv.innerHTML = '<div class="cart-empty">尚未選擇任何藥品</div>';
+        countSpan.innerText = "共 0 項";
+        publishBtn.disabled = true;
+      } else {
+        selectedItems.forEach((name, code) => {
+          cartDiv.innerHTML += `<div class="cart-tag">${name} <span onclick="removeFromCart('${code}')">✕</span></div>`;
+        });
+        countSpan.innerText = `共 ${selectedItems.size} 項`;
+        publishBtn.disabled = false;
+      }
     }
 
     async function publishTasks() {
       const date = document.getElementById('task-date').value;
       const main = document.getElementById("main-area").value;
       const sub = document.getElementById("sub-area").value;
-      const cbs = document.querySelectorAll('.drug-checkbox:checked');
       
-      if (!date || !main) { alert("請設定日期並選擇大區！"); return; }
-      if (cbs.length === 0) { alert("請勾選藥品！"); return; }
+      if (!date) { alert("請設定日期！"); return; }
+      if (selectedItems.size === 0) { alert("請至少選擇一項藥品！"); return; }
 
-      const selected = Array.from(cbs).map(cb => ({ code: cb.value, name: cb.getAttribute('data-name') }));
-      const locString = sub ? `${main}-${sub}` : main; 
+      // 💡 直接從購物車取出所有藥品
+      const selected = [];
+      selectedItems.forEach((name, code) => { selected.push({ code: code, name: name }); });
+      
+      // 這裡記錄發佈時「最後停留」的區域，方便報表顯示大致位置
+      const locString = sub ? `${main}-${sub}` : (main || "跨區綜合派案"); 
 
       const btn = document.getElementById('publish-btn');
       btn.innerText = "傳送中..."; btn.disabled = true;
@@ -205,9 +269,14 @@
       try {
         const res = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ action: "setTasks", date: date, location: locString, drugs: selected }) });
         const result = await res.json();
-        if (result.status === "success") { alert(`✅ 成功發佈 ${selected.length} 項任務！`); toggleAll(false); }
+        if (result.status === "success") { 
+          alert(`✅ 成功發佈 ${selected.length} 項任務！`); 
+          selectedItems.clear(); // 發佈成功後清空購物車
+          renderDrugs(); // 刷新畫面（取消打勾）
+          renderCart();  // 刷新購物車
+        }
       } catch (e) { alert("❌ 傳送失敗，請檢查網路"); }
-      btn.innerText = "🚀 發佈勾選項目至任務"; btn.disabled = false;
+      btn.innerText = "🚀 發佈已選項目至任務"; btn.disabled = (selectedItems.size === 0);
     }
   </script>
 </body>
