@@ -15,7 +15,6 @@
     .task-card { border-left: 5px solid #3498db; }
     .drug-name { font-weight: bold; color: #2c3e50; font-size: 18px; }
     .cabinet-badge { background-color: #e8f4fd; color: #2980b9; padding: 2px 6px; border-radius: 10px; font-size: 12px; margin-left: 5px; }
-    
     .flex-row { display: flex; gap: 10px; }
     .flex-row > div { flex: 1; }
     .history-item { border-bottom: 1px dashed #eee; padding: 8px 0; font-size: 13px; display: flex; justify-content: space-between; }
@@ -32,13 +31,15 @@
       </div>
       <div>
         <label>📅 任務日期：</label>
-        <input type="date" id="task-date" onchange="fetchTasks()">
+        <select id="task-date" onchange="fetchTasks()">
+          <option value="">⏳ 載入任務日期中...</option>
+        </select>
       </div>
     </div>
 
     <label style="margin-top:10px;">📍 選擇任務區域 (由大到小)：</label>
     <div class="flex-row">
-      <div><select id="main-area" onchange="updateSubArea()"><option value="">⏳ 載入任務中...</option></select></div>
+      <div><select id="main-area" onchange="updateSubArea()" disabled><option value="">-- 先選日期 --</option></select></div>
       <div><select id="sub-area" onchange="updateCabinet()" disabled><option value="">-- 小區 --</option></select></div>
     </div>
     <select id="cabinet" onchange="renderTasks()" disabled><option value="">-- 櫃位 (可不選) --</option></select>
@@ -55,39 +56,53 @@
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
     let taskDB = {}; 
-    let allTasks = []; 
 
-    window.onload = function() {
-      const today = new Date();
-      document.getElementById('task-date').value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    window.onload = async function() {
       const savedName = localStorage.getItem("savedStaffName");
       if (savedName) document.getElementById('staff-name').value = savedName;
       
-      fetchTasks();
+      // 一載入就先去雲端問「哪幾天有任務」
+      await fetchAvailableDates();
       loadRecentRecords();
     };
 
-    // 1. 從雲端抓取指定日期的所有任務
+    async function fetchAvailableDates() {
+      const dateSelect = document.getElementById('task-date');
+      try {
+        const res = await fetch(GAS_URL + "?action=getAvailableDates");
+        const dates = await res.json();
+        
+        if (dates.length === 0) {
+          dateSelect.innerHTML = '<option value="">🎉 目前全區無待辦任務</option>';
+          return;
+        }
+
+        dateSelect.innerHTML = '<option value="">-- 請選擇任務日期 --</option>';
+        dates.forEach(d => dateSelect.innerHTML += `<option value="${d}">${d}</option>`);
+      } catch (e) { dateSelect.innerHTML = '<option value="">❌ 載入日期失敗</option>'; }
+    }
+
     async function fetchTasks() {
       const date = document.getElementById('task-date').value;
       const mainSelect = document.getElementById('main-area');
+      
+      if(!date) { mainSelect.innerHTML = '<option value="">-- 先選日期 --</option>'; mainSelect.disabled = true; return; }
+
       mainSelect.innerHTML = '<option value="">⏳ 抓取任務中...</option>';
+      mainSelect.disabled = false;
       document.getElementById('task-list').innerHTML = "";
       document.getElementById('submit-btn').style.display = "none";
       taskDB = {};
 
       try {
         const res = await fetch(`${GAS_URL}?action=getTasksByDate&date=${date}`);
-        allTasks = await res.json();
+        const allTasks = await res.json();
         
         if (allTasks.length === 0) {
-          mainSelect.innerHTML = '<option value="">此日期無待辦任務 🎉</option>';
-          document.getElementById('sub-area').disabled = true;
-          document.getElementById('cabinet').disabled = true;
+          mainSelect.innerHTML = '<option value="">本區當日無任務</option>';
           return;
         }
 
-        // 把抓回來的任務組成階層 taskDB[大區][小區][櫃位] = [任務]
         allTasks.forEach(task => {
           if (!taskDB[task.mainArea]) taskDB[task.mainArea] = {};
           if (!taskDB[task.mainArea][task.subArea]) taskDB[task.mainArea][task.subArea] = {};
@@ -98,12 +113,9 @@
         mainSelect.innerHTML = '<option value="">-- 請選擇大區 --</option>';
         Object.keys(taskDB).sort().forEach(m => mainSelect.innerHTML += `<option value="${m}">${m}</option>`);
         
-      } catch (e) {
-        mainSelect.innerHTML = '<option value="">❌ 載入失敗</option>';
-      }
+      } catch (e) { mainSelect.innerHTML = '<option value="">❌ 載入失敗</option>'; }
     }
 
-    // 2. 選單連動邏輯
     function updateSubArea() {
       const main = document.getElementById("main-area").value;
       const subSelect = document.getElementById("sub-area");
@@ -115,9 +127,7 @@
       if (main && taskDB[main]) {
         subSelect.disabled = false;
         Object.keys(taskDB[main]).sort().forEach(s => subSelect.innerHTML += `<option value="${s}">${s}</option>`);
-      } else {
-        subSelect.disabled = true; cabSelect.disabled = true;
-      }
+      } else { subSelect.disabled = true; cabSelect.disabled = true; }
       renderTasks();
     }
 
@@ -130,24 +140,17 @@
       if (main && sub && taskDB[main][sub]) {
         cabSelect.disabled = false;
         Object.keys(taskDB[main][sub]).sort().forEach(c => cabSelect.innerHTML += `<option value="${c}">${c}</option>`);
-      } else {
-        cabSelect.disabled = true;
-      }
+      } else { cabSelect.disabled = true; }
       renderTasks();
     }
 
-    // 3. 渲染過濾後的任務卡片
     function renderTasks() {
       const main = document.getElementById("main-area").value;
       const sub = document.getElementById("sub-area").value;
       const cab = document.getElementById("cabinet").value;
       const listDiv = document.getElementById("task-list");
       
-      if (!main) { 
-        listDiv.innerHTML = ""; 
-        document.getElementById('submit-btn').style.display = "none";
-        return; 
-      }
+      if (!main) { listDiv.innerHTML = ""; document.getElementById('submit-btn').style.display = "none"; return; }
       
       let displayTasks = [];
       Object.keys(taskDB[main]).forEach(s => {
@@ -203,7 +206,10 @@
         const result = await res.json();
         if(result.status === "success") {
           alert("✅ 任務已成功上傳！");
-          fetchTasks(); // 重新整理任務狀態
+          document.getElementById('task-date').value = ""; // 清除選擇
+          await fetchAvailableDates(); // 重抓日期
+          document.getElementById('task-list').innerHTML = "";
+          btn.style.display = "none";
           loadRecentRecords();
         }
       } catch(e) { alert("❌ 上傳失敗"); }
