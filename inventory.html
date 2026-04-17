@@ -2,256 +2,429 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>全院大盤點 - 藥局盤點系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>藥局盤點系統</title>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 15px; color: #333; margin: 0; }
-    h2 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
-    .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; }
-    label { font-weight: bold; color: #2980b9; display: block; margin-bottom: 5px; font-size: 14px; }
-    input, select { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
-    input:disabled { background-color: #eee; color: #666; }
-    
-    .flex-row { display: flex; gap: 10px; }
-    .flex-row > div { flex: 1; }
-    
-    button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-    .btn-add { background-color: #3498db; color: white; margin-bottom: 10px; }
-    .btn-add:hover { background-color: #2980b9; }
-    .btn-submit { background-color: #27ae60; color: white; margin-top: 15px; padding: 15px; font-size: 18px; }
-    .btn-submit:hover { background-color: #219a52; }
-    .btn-remove { background-color: #e74c3c; color: white; padding: 6px 10px; font-size: 12px; width: auto; border-radius: 5px; }
-
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
-    th { background: #f8f9fa; padding: 10px; border-bottom: 2px solid #ddd; text-align: left; font-size: 14px; color: #7f8c8d; }
-    td { padding: 10px; border-bottom: 1px solid #eee; font-size: 15px; vertical-align: middle; }
-    .total-badge { background: #e8f4fd; color: #2980b9; padding: 3px 8px; border-radius: 12px; font-size: 14px; float: right; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+    h2 { text-align: center; color: #2c3e50; }
+    .card { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    label { display: block; margin-bottom: 8px; font-weight: bold; }
+    select, input[type="number"] { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+    button { width: 100%; padding: 15px; background-color: #3498db; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
+    button:active { background-color: #2980b9; }
+    button:disabled { background-color: #95a5a6; cursor: not-allowed; }
+    .drug-item { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
+    .drug-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; color: #2c3e50; }
+    .drug-code { font-size: 14px; color: #7f8c8d; margin-bottom: 10px; }
+    .hidden { display: none; }
+    /* 歷史紀錄專用樣式 */
+    .history-item { border-bottom: 1px dashed #ccc; padding: 10px 0; }
+    .history-item:last-child { border-bottom: none; }
+    .history-title { font-weight: bold; color: #2980b9; margin-bottom: 5px; }
+    .history-details { color: #555; font-size: 14px; line-height: 1.5; }
+    .qty-highlight { color: #e74c3c; font-weight: bold; }
   </style>
 </head>
 <body>
 
-  <h2>📦 全院大盤點作業</h2>
+  <h2>📋 藥局盤點系統</h2>
 
-  <div class="card">
-    <div class="flex-row">
-      <div>
-        <label>👤 工作檯 / 盤點人</label>
-        <input type="text" id="input-desk" placeholder="例如：A檯 小明">
-      </div>
-      <div>
-        <label>📍 盤點區域</label>
-        <input type="text" id="input-loc" placeholder="例如：門診-調劑檯">
-      </div>
-    </div>
-    <label>📝 備註 (選填)</label>
-    <input type="text" id="input-note" placeholder="如有特殊狀況請填寫">
+  <!-- 設定區塊 -->
+  <div id="setup-section" class="card">
+    <label for="main-area">1. 大區：</label>
+    <select id="main-area" onchange="updateSubArea()">
+      <option value="" disabled selected>請選擇大區...</option>
+    </select>
+
+    <label id="sub-area-label" for="sub-area">2. 小區：</label>
+    <select id="sub-area" onchange="updateCabinet()">
+      <option value="" disabled selected>請先選擇上方的大區</option>
+    </select>
+
+    <label id="cabinet-label" for="cabinet">3. 櫃位：</label>
+    <select id="cabinet">
+      <option value="" disabled selected>請先選擇上方的小區</option>
+    </select>
+
+    <button onclick="startInventory()" style="margin-top: 15px;">開始盤點此區</button>
   </div>
 
-  <div class="card" style="border-left: 5px solid #3498db;">
-    <h3 style="margin-top: 0; color: #2c3e50; font-size: 16px;">➕ 新增盤點藥品 <span id="db-status" style="font-size: 12px; color: #e67e22; font-weight: normal;">(藥檔載入中...)</span></h3>
-    
-    <div class="flex-row">
-      <div style="flex: 1.5;">
-        <label>代碼</label>
-        <input type="text" id="input-code" placeholder="輸入或刷條碼" oninput="searchDrug()" onkeypress="handleEnter(event, 'input-qty')">
-      </div>
-      <div style="flex: 2;">
-        <label>名稱 (自動帶出)</label>
-        <input type="text" id="input-name" placeholder="系統自動帶出" disabled>
-      </div>
-      <div style="flex: 1;">
-        <label>數量</label>
-        <input type="number" id="input-qty" placeholder="數量" onkeypress="handleEnter(event, 'btn-add')">
-      </div>
-    </div>
-    <button id="btn-add" class="btn-add" onclick="addItem()">⬇️ 加入下方清單</button>
+  <!-- 盤點輸入區塊 -->
+  <div id="inventory-section" class="card hidden">
+    <div id="current-info" style="margin-bottom: 15px; font-weight: bold; color: #e67e22;"></div>
+    <div id="drug-list"></div>
+    <div style="margin-top: 20px; border-top: 2px dashed #eee; padding-top: 15px;">
+  <label style="color: #e74c3c;">📝 突發狀況筆記 (選填)：</label>
+  <textarea id="cabinet-note" rows="2" placeholder="例如：包裝破損、批號不一、漏點..." 
+    style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px; box-sizing: border-box;"></textarea>
+</div>
+    <!-- 新增的覆盤模式開關 -->
+<div style="margin-bottom: 15px; background-color: #fff3cd; padding: 12px; border-radius: 8px; border-left: 5px solid #ffc107;">
+  <label style="display: flex; align-items: center; cursor: pointer; font-size: 16px; font-weight: bold; color: #856404; margin: 0;">
+    <input type="checkbox" id="recount-mode" style="width: 20px; height: 20px; margin-right: 10px;">
+    🔄 單藥覆盤模式 (保留同櫃位其他藥)
+  </label>
+</div>
+    <button id="submit-btn" style="background-color: #27ae60;" onclick="submitData()">送出並繼續</button>
+    <button style="background-color: #95a5a6; margin-top: 10px;" onclick="backToSetup()">返回重選</button>
   </div>
 
-  <div class="card" id="list-section" style="display: none;">
-    <h3 style="margin-top: 0; color: #2c3e50; font-size: 16px;">📋 待上傳清單 <span class="total-badge" id="item-count">共 0 筆</span></h3>
-    <div style="overflow-x: auto;">
-      <table id="item-table">
-        <thead>
-          <tr>
-            <th>代碼</th>
-            <th>名稱</th>
-            <th>數量</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody id="item-tbody">
-          </tbody>
-      </table>
+  <!-- 歷史紀錄區塊 (新增) -->
+  <div id="history-section" class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <h3 style="margin: 0; color: #2c3e50;">🕒 本機盤點紀錄</h3>
+      <button onclick="clearHistory()" style="width: auto; padding: 5px 10px; font-size: 12px; background-color: #e74c3c;">清除紀錄</button>
     </div>
-    <button id="btn-submit" class="btn-submit" onclick="submitInventory()">✅ 確認送出大盤點資料</button>
+    <div id="history-list" style="font-size: 14px; color: #7f8c8d;">尚無紀錄</div>
   </div>
-
   <script>
-    // ⚠️ 貼上您的 GAS 部署網址 (務必是 /exec 結尾)
+// ⚠️ 請替換為您的 GAS Web App 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
 
-    let drugDict = {}; 
-    let scanList = []; 
+    const db = {};
+    // 讀取手機本地的歷史紀錄
+    let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
 
-    window.onload = function() {
-      // 嘗試讀取上次輸入的盤點人和區域，節省打字時間
-      document.getElementById('input-desk').value = localStorage.getItem("invDesk") || "";
-      document.getElementById('input-loc').value = localStorage.getItem("invLoc") || "";
+    // 💡 唯一的新版載入邏輯 (從雲端抓資料)
+    window.onload = async function() {
+      const mainSelect = document.getElementById("main-area");
+      const startBtn = document.querySelector("button[onclick='startInventory()']");
       
-      fetchDrugs();
+      mainSelect.innerHTML = '<option value="" disabled selected>⏳ 藥品資料庫載入中...</option>';
+      if(startBtn) startBtn.disabled = true;
+
+      try {
+        const response = await fetch(GAS_URL + "?action=getDrugs");
+        const rawExcelData = await response.json();
+
+        mainSelect.innerHTML = '<option value="" disabled selected>請選擇大區...</option>';
+        if(startBtn) startBtn.disabled = false;
+
+        rawExcelData.forEach(row => {
+          const code = row[0];
+          const name = row[1] + " (" + row[2] + ")";
+          const rawCabinet = String(row[4] || "").trim();
+          const rawSubAreas = [row[5], row[6]].map(s => String(s || "").trim()).filter(s => s !== "");
+          const rawMainAreas = [row[7], row[8]].map(s => String(s || "").trim()).filter(s => s !== "");
+
+          rawMainAreas.forEach(mainArea => {
+            if (!db[mainArea]) db[mainArea] = {};
+
+            if (mainArea === "中山") {
+               if (!db[mainArea]["中山藥局"]) db[mainArea]["中山藥局"] = {};
+               if (!db[mainArea]["中山藥局"]["全部品項"]) db[mainArea]["中山藥局"]["全部品項"] = [];
+               if (!db[mainArea]["中山藥局"]["全部品項"].some(d => d.code === code)) {
+                 db[mainArea]["中山藥局"]["全部品項"].push({ code: code, name: name });
+               }
+            } else {
+               let subAreas = rawSubAreas.length > 0 ? rawSubAreas : ["未分類"];
+               subAreas.forEach(sub => {
+                  let expandedSubs = [sub];
+                  if (sub === "調劑檯") expandedSubs = ["調劑檯1", "調劑檯2", "調劑檯3"];
+
+                  expandedSubs.forEach(finalSub => {
+                     let finalCabinet = rawCabinet;
+                     if (finalSub.includes("庫") || !finalCabinet) finalCabinet = "全部品項";
+
+                     if (!db[mainArea][finalSub]) db[mainArea][finalSub] = {};
+                     if (!db[mainArea][finalSub][finalCabinet]) db[mainArea][finalSub][finalCabinet] = [];
+                     if (!db[mainArea][finalSub][finalCabinet].some(d => d.code === code)) {
+                       db[mainArea][finalSub][finalCabinet].push({ code: code, name: name });
+                     }
+                  });
+               });
+            }
+          });
+        });
+
+        Object.keys(db).forEach(area => {
+           const opt = document.createElement("option");
+           opt.value = area;
+           opt.innerText = area;
+           mainSelect.appendChild(opt);
+        });
+
+        renderHistory();
+
+      } catch(error) {
+        alert("❌ 載入藥品資料庫失敗，請檢查網路連線或稍後重試！");
+        mainSelect.innerHTML = '<option value="" disabled selected>連線失敗，請重新整理網頁</option>';
+      }
     };
 
-    // 破解快取
-    function getNoCacheUrl(baseAction) {
-      return GAS_URL + "?action=" + baseAction + "&t=" + new Date().getTime();
-    }
+    function updateSubArea() {
+      const mainArea = document.getElementById("main-area").value;
+      const subSelect = document.getElementById("sub-area");
+      const subLabel = document.getElementById("sub-area-label");
+      const cabSelect = document.getElementById("cabinet");
+      const cabLabel = document.getElementById("cabinet-label");
 
-    // 取得藥品主檔，用於輸入代碼時自動帶出名稱
-    async function fetchDrugs() {
-      const statusSpan = document.getElementById('db-status');
-      try {
-        const res = await fetch(getNoCacheUrl("getDrugs"));
-        const drugs = await res.json();
-        drugs.forEach(d => {
-          drugDict[String(d["藥品代碼"]).trim().toUpperCase()] = d["藥品名稱"];
-        });
-        statusSpan.innerText = "(✅ 藥檔已載入)";
-        statusSpan.style.color = "#27ae60";
-      } catch (e) {
-        statusSpan.innerText = "(❌ 藥檔載入失敗)";
-        statusSpan.style.color = "#e74c3c";
-      }
-    }
-
-    // 當輸入代碼時，即時查找藥名
-    function searchDrug() {
-      const codeInput = document.getElementById('input-code');
-      const nameInput = document.getElementById('input-name');
-      const cleanCode = codeInput.value.trim().toUpperCase();
+      subSelect.innerHTML = '<option value="" disabled selected>請選擇小區...</option>';
+      cabSelect.innerHTML = '<option value="" disabled selected>請先選擇上方的小區</option>';
       
-      if (cleanCode && drugDict[cleanCode]) {
-        nameInput.value = drugDict[cleanCode];
-      } else {
-        nameInput.value = "";
-      }
-    }
+      subSelect.style.display = 'block';
+      subLabel.style.display = 'block';
+      cabSelect.style.display = 'block';
+      cabLabel.style.display = 'block';
 
-    // 支援按下 Enter 鍵自動跳到下一個欄位或加入清單 (適合條碼機)
-    function handleEnter(e, nextElementId) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if(nextElementId === 'btn-add') {
-          addItem();
+      if (db[mainArea]) {
+        const subAreas = Object.keys(db[mainArea]).sort();
+
+        if (subAreas.length === 1 && subAreas[0] === "中山藥局") {
+            subSelect.innerHTML = '<option value="中山藥局" selected>中山藥局</option>';
+            subSelect.style.display = 'none';
+            subLabel.style.display = 'none';
+            updateCabinet(); 
         } else {
-          document.getElementById(nextElementId).focus();
+            subAreas.forEach(sub => {
+              const opt = document.createElement("option");
+              opt.value = sub;
+              opt.innerText = sub;
+              subSelect.appendChild(opt);
+            });
         }
       }
     }
 
-    // 將輸入的藥品加入下方暫存清單
-    function addItem() {
-      const code = document.getElementById('input-code').value.trim().toUpperCase();
-      let name = document.getElementById('input-name').value.trim();
-      const qty = document.getElementById('input-qty').value.trim();
+    function updateCabinet() {
+      const mainArea = document.getElementById("main-area").value;
+      const subArea = document.getElementById("sub-area").value;
+      const cabSelect = document.getElementById("cabinet");
+      const cabLabel = document.getElementById("cabinet-label");
 
-      if (!code) { alert("⚠️ 請輸入藥品代碼！"); return; }
-      if (!qty) { alert("⚠️ 請輸入實盤數量！"); return; }
-      if (!name) name = "未知藥品(未建檔)"; 
+      cabSelect.innerHTML = '<option value="" disabled selected>請選擇櫃位...</option>';
+      cabSelect.style.display = 'block';
+      cabLabel.style.display = 'block';
 
-      scanList.push({ drugCode: code, drugName: name, qty: qty });
-      
-      // 清空輸入框，游標自動回到代碼框，方便連續輸入
-      document.getElementById('input-code').value = "";
-      document.getElementById('input-name').value = "";
-      document.getElementById('input-qty').value = "";
-      document.getElementById('input-code').focus();
+      if (db[mainArea] && db[mainArea][subArea]) {
+        const cabinets = Object.keys(db[mainArea][subArea]).sort();
 
-      renderTable();
+        if (cabinets.length === 1 && cabinets[0] === "全部品項") {
+          cabSelect.innerHTML = '<option value="全部品項" selected>全部品項</option>';
+          cabSelect.style.display = 'none';
+          cabLabel.style.display = 'none';
+        } else {
+          cabinets.forEach(cab => {
+            const opt = document.createElement("option");
+            opt.value = cab;
+            
+            const deskString = mainArea + "-" + subArea;
+            const isDone = localHistory.some(h => h.desk === deskString && h.loc === cab);
+            opt.innerText = isDone ? cab + " ✅ (已盤)" : cab;
+            
+            cabSelect.appendChild(opt);
+          });
+        }
+      }
     }
 
-    // 移除清單中的某個項目
-    function removeItem(index) {
-      scanList.splice(index, 1);
-      renderTable();
-    }
+    function startInventory() {
+      const mainArea = document.getElementById("main-area").value;
+      const subArea = document.getElementById("sub-area").value;
+      const cabinet = document.getElementById("cabinet").value;
 
-    // 渲染待上傳表格
-    function renderTable() {
-      const section = document.getElementById('list-section');
-      const tbody = document.getElementById('item-tbody');
-      const count = document.getElementById('item-count');
-
-      if (scanList.length === 0) {
-        section.style.display = "none";
+      if (!mainArea || !subArea || !cabinet) {
+        alert("請完整選擇區域！");
         return;
       }
 
-      section.style.display = "block";
-      count.innerText = `共 ${scanList.length} 筆`;
-      tbody.innerHTML = "";
+      const cabText = cabinet === "全部品項" ? "" : ` - 櫃位 ${cabinet}`;
+      document.getElementById("current-info").innerText = `目前：${mainArea} - ${subArea}${cabText}`;
+      
+      const listDiv = document.getElementById("drug-list");
+      listDiv.innerHTML = ""; 
+      
+      const drugs = db[mainArea][subArea][cabinet] || [];
+      
+      const deskString = mainArea + "-" + subArea;
+      const pastRecord = localHistory.find(h => h.desk === deskString && h.loc === cabinet);
+      
+      drugs.forEach(drug => {
+        let pastQty = "";
+        if (pastRecord) {
+            const pastItem = pastRecord.items.find(i => i.drugCode === drug.code);
+            if (pastItem) pastQty = pastItem.qty;
+        }
 
-      // 將最新的顯示在最上面
-      [...scanList].reverse().forEach((item, revIndex) => {
-        const trueIndex = scanList.length - 1 - revIndex;
-        tbody.innerHTML += `
-          <tr>
-            <td><strong>${item.drugCode}</strong></td>
-            <td>${item.drugName}</td>
-            <td style="color:#27ae60; font-weight:bold; font-size:16px;">${item.qty}</td>
-            <td><button class="btn-remove" onclick="removeItem(${trueIndex})">刪除</button></td>
-          </tr>
+        const html = `
+          <div class="drug-item">
+            <div class="drug-name">${drug.name}</div>
+            <div class="drug-code">代碼：${drug.code}</div>
+            <input type="number" data-code="${drug.code}" data-name="${drug.name}" placeholder="請輸入數量" inputmode="numeric" pattern="[0-9]*" min="0" value="${pastQty}">
+          </div>
         `;
+        listDiv.innerHTML += html;
+      });
+
+      document.getElementById("setup-section").classList.add("hidden");
+      document.getElementById("history-section").classList.add("hidden");
+      document.getElementById("inventory-section").classList.remove("hidden");
+    }
+
+    function submitData() {
+      const note = document.getElementById("cabinet-note").value; 
+      const mainArea = document.getElementById("main-area").value;
+      const subArea = document.getElementById("sub-area").value;
+      const deskString = mainArea + "-" + subArea;
+      const loc = document.getElementById("cabinet").value;
+      const inputs = document.querySelectorAll("#drug-list input[type='number']");
+      
+      const isRecount = document.getElementById('recount-mode').checked;
+
+      let itemsToSubmit = [];
+      let hasEmpty = false;
+
+      inputs.forEach(input => {
+        const qty = input.value;
+        if (qty === "") hasEmpty = true; 
+        
+        if (isRecount) {
+          if (qty !== "") {
+            itemsToSubmit.push({
+              drugCode: input.getAttribute("data-code"),
+              drugName: input.getAttribute("data-name"),
+              qty: qty
+            });
+          }
+        } else {
+          itemsToSubmit.push({
+            drugCode: input.getAttribute("data-code"),
+            drugName: input.getAttribute("data-name"),
+            qty: qty || 0 
+          });
+        }
+      });
+
+      if (isRecount && itemsToSubmit.length === 0) {
+        alert("⚠️ 覆盤模式下，請至少輸入一個要修改的藥品數量！");
+        return;
+      }
+
+      if (!isRecount && hasEmpty) {
+        if (!confirm("⚠️ 有部分藥品未填寫數量，系統將自動填入 0 送出，確定嗎？")) {
+          return;
+        }
+      }
+
+      const payload = {
+        desk: deskString,
+        location: loc,
+        items: itemsToSubmit,
+        mode: isRecount ? "partial" : "full",
+        note: note
+      };
+
+      const btn = document.querySelector("button[onclick='submitData()']");
+      const originalText = btn.innerText;
+      btn.innerText = "資料傳送中...";
+      btn.disabled = true;
+
+      fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === "success") {
+          alert("✅ 送出成功！");
+          
+          document.getElementById('cabinet-note').value = ''; 
+          
+          const now = new Date();
+          const timeString = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+          let existingIndex = localHistory.findIndex(h => h.desk === deskString && h.loc === loc);
+          
+          if (isRecount && existingIndex !== -1) {
+            itemsToSubmit.forEach(newItem => {
+              let itemIndex = localHistory[existingIndex].items.findIndex(i => i.drugCode === newItem.drugCode);
+              if (itemIndex !== -1) {
+                localHistory[existingIndex].items[itemIndex].qty = newItem.qty;
+              } else {
+                localHistory[existingIndex].items.push(newItem);
+              }
+            });
+            if (note) {
+              localHistory[existingIndex].note = localHistory[existingIndex].note ? (localHistory[existingIndex].note + " | " + note) : note;
+            }
+            localHistory[existingIndex].time = timeString;
+            let updatedRecord = localHistory.splice(existingIndex, 1)[0];
+            localHistory.unshift(updatedRecord);
+          } else {
+            if (existingIndex !== -1) localHistory.splice(existingIndex, 1);
+            localHistory.unshift({
+              time: timeString,
+              desk: deskString,
+              loc: loc,
+              items: itemsToSubmit,
+              note: note 
+            });
+          }
+          
+          localStorage.setItem("inventoryHistory", JSON.stringify(localHistory));
+          
+          renderHistory();   
+          updateCabinet();   
+          document.getElementById('recount-mode').checked = false; 
+          document.getElementById('drug-list').innerHTML = ''; 
+          backToSetup(); 
+          
+        } else {
+          alert("❌ 送出失敗：" + data.message);
+        }
+      })
+      .catch(error => {
+        alert("❌ 網路錯誤，請檢查連線後重試！");
+      })
+      .finally(() => {
+        btn.innerText = originalText;
+        btn.disabled = false;
       });
     }
 
-    // 送出大盤點資料給 GAS
-    async function submitInventory() {
-      const desk = document.getElementById('input-desk').value.trim();
-      const loc = document.getElementById('input-loc').value.trim();
-      const note = document.getElementById('input-note').value.trim();
+    function backToSetup() {
+      document.getElementById("setup-section").classList.remove("hidden");
+      document.getElementById("history-section").classList.remove("hidden");
+      document.getElementById("inventory-section").classList.add("hidden");
+      
+      const cabSelect = document.getElementById("cabinet");
+      if(cabSelect.style.display !== 'none') cabSelect.value = ""; 
+    }
 
-      if (!desk) { alert("⚠️ 請輸入「工作檯 / 盤點人」！"); return; }
-      if (!loc) { alert("⚠️ 請輸入「盤點區域」！"); return; }
-      if (scanList.length === 0) { alert("⚠️ 清單中沒有任何藥品！"); return; }
-
-      // 記住這次的設定，下次打開就不用重打
-      localStorage.setItem("invDesk", desk);
-      localStorage.setItem("invLoc", loc);
-
-      const btn = document.getElementById('btn-submit');
-      btn.innerText = "⏳ 資料上傳中，請稍候...";
-      btn.disabled = true;
-
-      try {
-        const payload = {
-          action: "submitFullCheck",
-          desk: desk,
-          location: loc,
-          note: note,
-          mode: "full",
-          items: scanList
-        };
-
-        const res = await fetch(GAS_URL, {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-        const result = await res.json();
-
-        if (result.status === "success") {
-          alert(`✅ 成功上傳 ${scanList.length} 筆盤點資料！`);
-          scanList = []; // 清空清單
-          renderTable();
-        } else {
-          alert("❌ 系統回傳錯誤：" + result.message);
-        }
-      } catch (e) {
-        alert("❌ 上傳失敗，請檢查網路連線！");
+    function renderHistory() {
+      const listDiv = document.getElementById("history-list");
+      if (localHistory.length === 0) {
+        listDiv.innerHTML = "尚無紀錄";
+        return;
       }
 
-      btn.innerText = "✅ 確認送出大盤點資料";
-      btn.disabled = false;
+      let html = "";
+      localHistory.forEach(record => {
+        let details = record.items.map(i => `${i.drugName}: <span class="qty-highlight">${i.qty}</span>`).join('<br>');
+        let locText = record.loc === "全部品項" ? "" : `- 櫃位 ${record.loc}`;
+        
+        let noteHtml = record.note ? `<div style="color: #e74c3c; margin-top: 5px; font-weight: bold;">📝 筆記：${record.note}</div>` : "";
+        
+        html += `
+          <div class="history-item">
+            <div class="history-title">${record.time} | ${record.desk} ${locText}</div>
+            <div class="history-details">
+              ${details}
+              ${noteHtml} 
+            </div>
+          </div>
+        `;
+      });
+      listDiv.innerHTML = html;
     }
-  </script>
+
+    function clearHistory() {
+      if (confirm("確定要清除手機上的所有盤點紀錄嗎？(不會影響已經上傳到試算表的資料)")) {
+        localStorage.removeItem("inventoryHistory");
+        localHistory = [];
+        renderHistory();
+        updateCabinet(); 
+      }
+    }
+ </script>
 </body>
 </html>
