@@ -85,7 +85,7 @@
     // 讀取手機本地的歷史紀錄
     let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
 
-    // 💡 唯一的新版載入邏輯 (從雲端抓資料)
+// 💡 唯一的新版載入邏輯 (修復資料格式不相容問題)
     window.onload = async function() {
       const mainSelect = document.getElementById("main-area");
       const startBtn = document.querySelector("button[onclick='startInventory()']");
@@ -101,11 +101,16 @@
         if(startBtn) startBtn.disabled = false;
 
         rawExcelData.forEach(row => {
-          const code = row[0];
-          const name = row[1] + " (" + row[2] + ")";
-          const rawCabinet = String(row[4] || "").trim();
-          const rawSubAreas = [row[5], row[6]].map(s => String(s || "").trim()).filter(s => s !== "");
-          const rawMainAreas = [row[7], row[8]].map(s => String(s || "").trim()).filter(s => s !== "");
+          // 💡 關鍵修復：將 GAS 回傳的 JSON 物件，轉回原本程式習慣的陣列排序
+          const cols = Object.values(row);
+
+          const code = cols[0];
+          if (!code) return; // 避免抓到空白行出錯
+
+          const name = cols[1] + (cols[2] ? " (" + cols[2] + ")" : "");
+          const rawCabinet = String(cols[4] || "").trim();
+          const rawSubAreas = [cols[5], cols[6]].map(s => String(s || "").trim()).filter(s => s !== "" && s !== "undefined");
+          const rawMainAreas = [cols[7], cols[8]].map(s => String(s || "").trim()).filter(s => s !== "" && s !== "undefined");
 
           rawMainAreas.forEach(mainArea => {
             if (!db[mainArea]) db[mainArea] = {};
@@ -151,7 +156,6 @@
         mainSelect.innerHTML = '<option value="" disabled selected>連線失敗，請重新整理網頁</option>';
       }
     };
-
     function updateSubArea() {
       const mainArea = document.getElementById("main-area").value;
       const subSelect = document.getElementById("sub-area");
