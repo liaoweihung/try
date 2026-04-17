@@ -182,8 +182,8 @@
         document.getElementById('submit-btn').style.display = "block";
       }
     }
-
-   async function submitData() {
+    
+async function submitData() {
       // 1. 檢查盤點人與任務日期
       const staffName = document.getElementById('staff-name').value.trim();
       if (!staffName) { alert("⚠️ 請輸入盤點人姓名！"); return; }
@@ -194,7 +194,7 @@
       localStorage.setItem("savedStaffName", staffName);
 
       const items = [];
-      let hasError = false; // 🛑 建立一個「是否有漏填」的標記
+      let hasError = false; 
 
       // 2. 迴圈檢查每一張藥品小卡
       document.querySelectorAll('.task-card').forEach(c => {
@@ -202,29 +202,40 @@
         const qtyVal = c.querySelector('.qty').value;
         const expiryVal = c.querySelector('.expiry').value;
 
-        // 🛑 防呆 1：數量不能為空
-        if (qtyVal === "") {
-          alert(`⚠️ 請輸入「${drugName}」的實盤數量！`);
-          hasError = true;
+        // 💡 聰明邏輯：如果數量和效期「都是」空白的，代表這次先不盤點這項，直接跳過！
+        if (qtyVal === "" && !expiryVal) {
+          return; 
         }
-        
-        // 🛑 防呆 2：效期不能為空
-        if (!expiryVal) {
-          alert(`⚠️ 請輸入「${drugName}」的最舊效期！`);
+
+        // 🛑 防呆邏輯：只要動了其中一個欄位，就必須兩個都填滿
+        if (qtyVal === "") {
+          alert(`⚠️ 您選擇了「${drugName}」的效期，但忘記填寫實盤數量！`);
+          hasError = true;
+        } else if (!expiryVal) {
+          alert(`⚠️ 您填寫了「${drugName}」的數量，但忘記選擇最舊效期！`);
           hasError = true;
         }
 
-        items.push({
-          code: c.dataset.code, 
-          name: drugName,
-          loc: c.dataset.loc,
-          qty: qtyVal,
-          expiry: expiryVal
-        });
+        // 如果資料齊全，才加入準備上傳的清單
+        if (qtyVal !== "" && expiryVal) {
+          items.push({
+            code: c.dataset.code, 
+            name: drugName,
+            loc: c.dataset.loc,
+            qty: qtyVal,
+            expiry: expiryVal
+          });
+        }
       });
 
-      // 💡 只要有任何一個漏填 (hasError 變成 true)，就立刻煞車終止上傳！
+      // 如果有填寫不完整的項目，立刻煞車
       if (hasError) return; 
+
+      // 💡 防呆 3：如果全部都跳過了，導致完全沒有資料可以上傳，也要擋下來
+      if (items.length === 0) {
+        alert("⚠️ 您尚未輸入任何盤點資料喔！");
+        return;
+      }
 
       // 3. 通過檢查，開始上傳
       const btn = document.getElementById('submit-btn');
@@ -235,11 +246,11 @@
           action: "submitRandomCheck", 
           date: taskDate, 
           user: staffName, 
-          items: items
+          items: items // 這裡只會送出有填寫完整的項目
         })});
         const result = await res.json();
         if(result.status === "success") {
-          alert("✅ 任務已成功上傳！");
+          alert(`✅ 已成功上傳 ${items.length} 筆盤點任務！`);
           document.getElementById('task-date').value = ""; 
           await fetchAvailableDates(); 
           document.getElementById('task-list').innerHTML = "";
@@ -250,7 +261,7 @@
       
       btn.innerText = "✅ 確認上傳結果"; btn.disabled = false;
     }
-
+   
     async function loadRecentRecords() {
       const div = document.getElementById('recent-list');
       try {
