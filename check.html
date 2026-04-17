@@ -183,9 +183,15 @@
       }
     }
 
-    async function submitData() {
+   async function submitData() {
+      // 1. 檢查盤點人
       const staffName = document.getElementById('staff-name').value.trim();
-      if (!staffName) { alert("請輸入盤點人姓名！"); return; }
+      if (!staffName) { alert("⚠️ 請輸入盤點人姓名！"); return; }
+      
+      // 💡 2. 新增的防呆機制：檢查任務日期
+      const taskDate = document.getElementById('task-date').value;
+      if (!taskDate) { alert("⚠️ 請選擇上方的「任務日期」！"); return; }
+
       localStorage.setItem("savedStaffName", staffName);
 
       const items = [];
@@ -204,8 +210,10 @@
 
       try {
         const res = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({
-          action: "submitRandomCheck", date: document.getElementById('task-date').value,
-          user: staffName, items: items
+          action: "submitRandomCheck", 
+          date: taskDate, // 💡 這裡直接使用剛剛抓取並檢查過的 taskDate
+          user: staffName, 
+          items: items
         })});
         const result = await res.json();
         if(result.status === "success") {
@@ -216,7 +224,8 @@
           btn.style.display = "none";
           loadRecentRecords();
         }
-      } catch(e) { alert("❌ 上傳失敗，請檢查網路！"); }
+      } catch(e) { alert("❌ 上傳失敗，請檢查網路連線！"); }
+      
       btn.innerText = "✅ 確認上傳結果"; btn.disabled = false;
     }
 
