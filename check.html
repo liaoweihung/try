@@ -184,34 +184,56 @@
     }
 
    async function submitData() {
-      // 1. 檢查盤點人
+      // 1. 檢查盤點人與任務日期
       const staffName = document.getElementById('staff-name').value.trim();
       if (!staffName) { alert("⚠️ 請輸入盤點人姓名！"); return; }
       
-      // 💡 2. 新增的防呆機制：檢查任務日期
       const taskDate = document.getElementById('task-date').value;
       if (!taskDate) { alert("⚠️ 請選擇上方的「任務日期」！"); return; }
 
       localStorage.setItem("savedStaffName", staffName);
 
       const items = [];
+      let hasError = false; // 🛑 建立一個「是否有漏填」的標記
+
+      // 2. 迴圈檢查每一張藥品小卡
       document.querySelectorAll('.task-card').forEach(c => {
+        const drugName = c.dataset.name;
+        const qtyVal = c.querySelector('.qty').value;
+        const expiryVal = c.querySelector('.expiry').value;
+
+        // 🛑 防呆 1：數量不能為空
+        if (qtyVal === "") {
+          alert(`⚠️ 請輸入「${drugName}」的實盤數量！`);
+          hasError = true;
+        }
+        
+        // 🛑 防呆 2：效期不能為空
+        if (!expiryVal) {
+          alert(`⚠️ 請輸入「${drugName}」的最舊效期！`);
+          hasError = true;
+        }
+
         items.push({
           code: c.dataset.code, 
-          name: c.dataset.name,
+          name: drugName,
           loc: c.dataset.loc,
-          qty: c.querySelector('.qty').value || 0,
-          expiry: c.querySelector('.expiry').value
+          qty: qtyVal,
+          expiry: expiryVal
         });
       });
 
+      // 💡 只要有任何一個漏填 (hasError 變成 true)，就立刻煞車終止上傳！
+      if (hasError) return; 
+
+      // 3. 通過檢查，開始上傳
       const btn = document.getElementById('submit-btn');
       btn.innerText = "上傳中..."; btn.disabled = true;
 
       try {
         const res = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({
           action: "submitRandomCheck", 
-          date: taskDate, // 💡 這裡直接使用剛剛抓取並檢查過的 taskDate
+          date: taskDate, 
           user: staffName, 
           items: items
         })});
