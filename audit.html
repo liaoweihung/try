@@ -157,16 +157,21 @@
 
       body.innerHTML = "";
       tasks.forEach(task => {
+        const date = task[0]; // 任務日期
         const code = String(task[1]).trim();
         const area = String(task[2]).trim();
         const status = String(task[3]).trim();
         const name = task[4];
         const cabinet = drugMap[code] || "-";
 
-        // 💡 終極安全比對：因為 GAS 已經從最新一筆開始排，所以 .find() 找到的第一個就是「最後一次的盤點結果」
-        const rec = records.find(r => r["安全代碼"] === code && (r["安全區域"] === area || r["安全區域"] === "")&&
-  getSafeDateStr(r["任務日期"]) === date // 💡 加上這行，確保日期完全吻合
-                                );
+        // 💡 終極比對：代碼 + 區域(去除符號) + 任務日期
+        function clean(s) { return String(s||"").replace(/[\s\-\_－]/g, ""); }
+        
+        const rec = records.find(r => 
+          clean(r["安全代碼"]) === clean(code) && 
+          clean(r["安全區域"]) === clean(area) &&
+          r["任務日期"] === date // 💡 確保這筆紀錄是屬於這天的任務
+        );
 
         body.innerHTML += `
           <tr>
