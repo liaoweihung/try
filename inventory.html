@@ -21,7 +21,6 @@
     .input-group input { margin-bottom: 0; flex: 1; }
     .input-unit { margin-left: 10px; font-size: 16px; font-weight: bold; color: #2c3e50; min-width: 30px; }
     .hidden { display: none; }
-    /* 歷史紀錄專用樣式 */
     .history-item { border-bottom: 1px dashed #ccc; padding: 10px 0; }
     .history-item:last-child { border-bottom: none; }
     .history-title { font-weight: bold; color: #2980b9; margin-bottom: 5px; }
@@ -35,13 +34,18 @@
 
   <div id="setup-section" class="card">
     <label for="main-area">1. 盤點大區：</label>
-    <select id="main-area" onchange="updateCabinet()">
+    <select id="main-area" onchange="updateSubArea()">
       <option value="" disabled selected>請選擇大區...</option>
     </select>
 
-    <label id="cabinet-label" for="cabinet">2. 儲位/細分區：</label>
-    <select id="cabinet">
+    <label id="sub-area-label" for="sub-area">2. 自動分類小區：</label>
+    <select id="sub-area" onchange="updateCabinet()">
       <option value="" disabled selected>請先選擇上方的大區</option>
+    </select>
+
+    <label id="cabinet-label" for="cabinet">3. 實際櫃位：</label>
+    <select id="cabinet">
+      <option value="" disabled selected>請先選擇上方的小區</option>
     </select>
 
     <button onclick="startInventory()" style="margin-top: 15px;">開始盤點此區</button>
@@ -78,13 +82,28 @@
   </div>
 
   <script>
-    // ⚠️ 請務必替換為您剛剛重新發布的 GAS 網址！
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
+    // ⚠️ 請務必替換為您的 GAS 網址
+    const GAS_URL = "您的GAS網址請貼在這裡";
 
     const db = {};
     let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
 
-    // 💡 全新載入邏輯：解析 7 欄位資料並自動分身
+    // 💡 核心分類引擎：將原始儲位名稱，翻譯成對應的「小區」
+    function classifySubAreas(cabName) {
+      if (!cabName || cabName === "全部品項") return ["全部品項"];
+      
+      if (cabName.includes("B1")) return ["B1庫存區"];
+      if (cabName.startsWith("ADC")) return ["ADC藥櫃"];
+      if (cabName.startsWith("調3")) return ["調劑檯3"];
+      if (cabName.startsWith("水")) return ["水藥台"];
+      if (cabName.startsWith("專案")) return ["專案櫃"];
+      if (cabName.startsWith("磨粉區")) return ["磨粉區"];
+      if (cabName.startsWith("藥包機")) return ["藥包機"];
+      
+      // 如果沒有符合上述中文前綴 (例如 E3, A01)，自動分身給這三個調劑檯
+      return ["調劑檯1", "調劑檯2", "調劑檯4"];
+    }
+
     window.onload = async function() {
       const mainSelect = document.getElementById("main-area");
       const startBtn = document.querySelector("button[onclick='startInventory()']");
@@ -106,29 +125,32 @@
           const name = String(row[1] || "").trim();
           const spec = String(row[2] || "").trim();
           const unit = String(row[3] || "").trim();
-          const cab1 = String(row[4] || "").trim();
-          const cab2 = String(row[5] || "").trim();
+          const cab1 = String(row[4] || "").trim(); // 第一儲位
+          const cab2 = String(row[5] || "").trim(); // 第二儲位
           const mainArea = String(row[6] || "").trim();
 
           if (!mainArea) return; 
 
-          // ✂️ 自動分身術：處理第一儲位與第二儲位，並切割逗號
-          let cabinets = [];
-          if (cab1) cabinets.push(...cab1.split(/[,、，+/]/).map(s => s.trim()).filter(s => s));
-          if (cab2) cabinets.push(...cab2.split(/[,、，+/]/).map(s => s.trim()).filter(s => s));
-          
-          // 如果兩個儲位都沒寫，預設歸類為「全部品項」
-          if (cabinets.length === 0) cabinets.push("全部品項");
+          // 收集這個藥的所有原始儲位名稱
+          let rawCabinets = [];
+          if (cab1) rawCabinets.push(...cab1.split(/[,、，+/]/).map(s => s.trim()).filter(s => s));
+          if (cab2) rawCabinets.push(...cab2.split(/[,、，+/]/).map(s => s.trim()).filter(s => s));
+          if (rawCabinets.length === 0) rawCabinets.push("全部品項");
 
           if (!db[mainArea]) db[mainArea] = {};
 
-          cabinets.forEach(cab => {
-            if (!db[mainArea][cab]) db[mainArea][cab] = [];
+          rawCabinets.forEach(cab => {
+            // 呼叫分類引擎，找出這個儲位屬於哪些小區
+            const subAreas = classifySubAreas(cab);
             
-            // 避免同儲位重複加入
-            if (!db[mainArea][cab].some(d => d.code === code)) {
-               db[mainArea][cab].push({ code: code, name: name, spec: spec, unit: unit });
-            }
+            subAreas.forEach(sub => {
+              if (!db[mainArea][sub]) db[mainArea][sub] = {};
+              if (!db[mainArea][sub][cab]) db[mainArea][sub][cab] = [];
+              
+              if (!db[mainArea][sub][cab].some(d => d.code === code)) {
+                 db[mainArea][sub][cab].push({ code: code, name: name, spec: spec, unit: unit });
+              }
+            });
           });
         });
 
@@ -148,14 +170,40 @@
       }
     };
 
+    function updateSubArea() {
+      const mainArea = document.getElementById("main-area").value;
+      const subSelect = document.getElementById("sub-area");
+      const cabSelect = document.getElementById("cabinet");
+
+      subSelect.innerHTML = '<option value="" disabled selected>請選擇小區...</option>';
+      cabSelect.innerHTML = '<option value="" disabled selected>請先選擇上方的小區</option>';
+      
+      if (db[mainArea]) {
+        const subAreas = Object.keys(db[mainArea]).sort();
+
+        if (subAreas.length === 1 && subAreas[0] === "全部品項") {
+            subSelect.innerHTML = '<option value="全部品項" selected>全部品項</option>';
+            updateCabinet(); 
+        } else {
+            subAreas.forEach(sub => {
+              const opt = document.createElement("option");
+              opt.value = sub;
+              opt.innerText = sub;
+              subSelect.appendChild(opt);
+            });
+        }
+      }
+    }
+
     function updateCabinet() {
       const mainArea = document.getElementById("main-area").value;
+      const subArea = document.getElementById("sub-area").value;
       const cabSelect = document.getElementById("cabinet");
       
       cabSelect.innerHTML = '<option value="" disabled selected>請選擇儲位...</option>';
       
-      if (db[mainArea]) {
-        const cabinets = Object.keys(db[mainArea]).sort();
+      if (db[mainArea] && db[mainArea][subArea]) {
+        const cabinets = Object.keys(db[mainArea][subArea]).sort();
 
         if (cabinets.length === 1 && cabinets[0] === "全部品項") {
           cabSelect.innerHTML = '<option value="全部品項" selected>全部品項</option>';
@@ -163,7 +211,9 @@
           cabinets.forEach(cab => {
             const opt = document.createElement("option");
             opt.value = cab;
-            const isDone = localHistory.some(h => h.desk === mainArea && h.loc === cab);
+            // 比對本機歷史紀錄，防護機制
+            const deskString = mainArea + "-" + subArea;
+            const isDone = localHistory.some(h => h.desk === deskString && h.loc === cab);
             opt.innerText = isDone ? cab + " ✅ (已盤)" : cab;
             cabSelect.appendChild(opt);
           });
@@ -173,21 +223,23 @@
 
     function startInventory() {
       const mainArea = document.getElementById("main-area").value;
+      const subArea = document.getElementById("sub-area").value;
       const cabinet = document.getElementById("cabinet").value;
 
-      if (!mainArea || !cabinet) {
-        alert("請完整選擇大區與儲位！");
+      if (!mainArea || !subArea || !cabinet) {
+        alert("請完整選擇大區、小區與櫃位！");
         return;
       }
 
       const cabText = cabinet === "全部品項" ? "" : ` - ${cabinet}`;
-      document.getElementById("current-info").innerText = `📍 目前位置：${mainArea}${cabText}`;
+      document.getElementById("current-info").innerText = `📍 目前：${mainArea} - ${subArea}${cabText}`;
       
       const listDiv = document.getElementById("drug-list");
       listDiv.innerHTML = ""; 
       
-      const drugs = db[mainArea][cabinet] || [];
-      const pastRecord = localHistory.find(h => h.desk === mainArea && h.loc === cabinet);
+      const drugs = db[mainArea][subArea][cabinet] || [];
+      const deskString = mainArea + "-" + subArea;
+      const pastRecord = localHistory.find(h => h.desk === deskString && h.loc === cabinet);
       
       drugs.forEach(drug => {
         let pastQty = "";
@@ -196,11 +248,10 @@
             if (pastItem) pastQty = pastItem.qty;
         }
 
-        // ✨ 介面大升級：加入規格與單位顯示
         const html = `
           <div class="drug-item">
             <div class="drug-name">${drug.name} <span class="drug-spec">(${drug.spec})</span></div>
-            <div class="drug-code">院內碼：${drug.code}</div>
+            <div class="drug-code">代碼：${drug.code}</div>
             <div class="input-group">
                <input type="number" data-code="${drug.code}" data-name="${drug.name}" placeholder="請輸入數量" inputmode="numeric" pattern="[0-9]*" min="0" value="${pastQty}">
                <div class="input-unit">${drug.unit}</div>
@@ -218,6 +269,8 @@
     function submitData() {
       const note = document.getElementById("cabinet-note").value; 
       const mainArea = document.getElementById("main-area").value;
+      const subArea = document.getElementById("sub-area").value;
+      const deskString = mainArea + "-" + subArea; // 將大區與小區綁定，確保資料獨立
       const loc = document.getElementById("cabinet").value;
       const inputs = document.querySelectorAll("#drug-list input[type='number']");
       const isRecount = document.getElementById('recount-mode').checked;
@@ -248,8 +301,8 @@
       }
 
       const payload = {
-        desk: mainArea,  // 大盤點的大區
-        location: loc,   // 儲位
+        desk: deskString, // 例如：門診-調劑檯1
+        location: loc,    // 例如：E3
         items: itemsToSubmit,
         mode: isRecount ? "partial" : "full",
         note: note
@@ -272,7 +325,7 @@
           
           const now = new Date();
           const timeString = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
-          let existingIndex = localHistory.findIndex(h => h.desk === mainArea && h.loc === loc);
+          let existingIndex = localHistory.findIndex(h => h.desk === deskString && h.loc === loc);
           
           if (isRecount && existingIndex !== -1) {
             itemsToSubmit.forEach(newItem => {
@@ -286,7 +339,7 @@
             localHistory.unshift(updatedRecord);
           } else {
             if (existingIndex !== -1) localHistory.splice(existingIndex, 1);
-            localHistory.unshift({ time: timeString, desk: mainArea, loc: loc, items: itemsToSubmit, note: note });
+            localHistory.unshift({ time: timeString, desk: deskString, loc: loc, items: itemsToSubmit, note: note });
           }
           
           localStorage.setItem("inventoryHistory", JSON.stringify(localHistory));
@@ -332,7 +385,7 @@
         localStorage.removeItem("inventoryHistory");
         localHistory = [];
         renderHistory();
-        updateCabinet(); 
+        updateSubArea(); 
       }
     }
   </script>
