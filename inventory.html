@@ -109,8 +109,18 @@
           if (cabName.startsWith("藥包機")) return ["藥包機"];
           return ["調劑檯1", "調劑檯2", "調劑檯4"];
 
-        // 🚑 急診專屬規則 (全新自動解析邏輯)
+          // 🚑 急診專屬規則 (加入 ER_ 與 B1冷凍 攔截)
         case "急診":
+          // 🆕 特殊攔截 1：B1冷凍 (優先處理避免被後續規則誤判)
+          if (cabName === "B1冷凍" || cabName.startsWith("B1冷凍")) {
+            return ["B1冷凍"];
+          }
+
+          // 🆕 特殊攔截 2：ER_ 開頭 (包含底線的特殊前綴)
+          if (cabName.startsWith("ER_")) {
+            return ["ER_"];
+          }
+      
           // 規則 1：英文開頭 (例如 PU123 -> PU, EU1 -> EU)
           // 邏輯：抓取字首連續的英文字母
           const enMatch = cabName.match(/^[a-zA-Z]+/);
