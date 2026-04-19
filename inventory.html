@@ -88,31 +88,59 @@
     const db = {};
     let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
 
-// 💡 核心分類引擎：回歸無前綴歸類原則
+// 💡 核心分類引擎：大區模組化隔離版 (終極版)
     function classifySubAreas(cabName, mainArea) {
       if (!cabName || cabName === "全部品項") return ["全部品項"];
       
-      // 1. 直接指定的小區名稱 (您在 F 欄輸入的名稱)
+      // 🌟【跨區通用規則】
+      // 這是您在 Excel 的 F 欄 (第二儲位) 手動建立的跨區標準名稱，擁有最高優先權
       if (cabName === "門地下一層") return ["門地下一層"];
-      
-      // 2. 特殊前綴優先攔截
-      if (cabName.startsWith("調3")) return ["調劑檯3"];
-      if (cabName.startsWith("ADC")) return ["ADC藥櫃"];
-      
-      // 3. 門診專屬規則
-      if (mainArea === "門診") {
-        if (cabName.startsWith("水")) return ["水藥台"];
-        if (cabName.startsWith("專案")) return ["專案櫃"];
-        if (cabName.startsWith("磨粉區")) return ["磨粉區"];
-        if (cabName.startsWith("藥包機")) return ["藥包機"];
-        
-        // 🌟 關鍵修正：剩下沒有上述中文前綴的 (包含 B1, E3, A01 等純代碼)
-        // 一律自動分身給這三個調劑檯
-        return ["調劑檯1", "調劑檯2", "調劑檯4"];
-      }
 
-      // 其他大區 (急診、中山等)，歸類為「全部品項」
-      return ["全部品項"];
+      // 🌟【依大區各自表述】
+      switch (mainArea) {
+        
+        // 🏥 門診的專屬規則包廂
+        case "門診":
+          if (cabName.startsWith("調3")) return ["調劑檯3"];
+          if (cabName.startsWith("ADC")) return ["ADC藥櫃"];
+          if (cabName.startsWith("水")) return ["水藥台"];
+          if (cabName.startsWith("專案")) return ["專案櫃"];
+          if (cabName.startsWith("磨粉區")) return ["磨粉區"];
+          if (cabName.startsWith("藥包機")) return ["藥包機"];
+          
+          // 門診剩下的純代碼 (B1, E3 等)
+          return ["調劑檯1", "調劑檯2", "調劑檯4"];
+
+
+        // 📦 藥庫的專屬規則包廂 (依照您截圖的範例擴充)
+        case "藥庫":
+          if (cabName.startsWith("管")) return ["管制藥品區"];
+          if (cabName.startsWith("F")) return ["F區輸注液"]; // 假設 F 開頭是特定區
+          
+          // 藥庫剩下的其他儲位，可以統一叫一般藥架，或是直接回傳「全部品項」讓它不分小區
+          return ["一般藥架"]; 
+
+
+        // 🚑 急診的專屬規則包廂 (您可以自行修改)
+        case "急診":
+          if (cabName.startsWith("冰箱")) return ["急診冰箱"];
+          if (cabName.startsWith("管")) return ["急診管制櫃"];
+          
+          // 如果急診不分小區，大家一起盤，就直接回傳儲位本身，或全部品項
+          return ["全部品項"]; 
+
+
+        // 🩸 中山或化療等配置單純的區域
+        case "中山":
+        case "化療":
+          // 如果這些地方根本不需要分小區，就直接回傳全部品項
+          return ["全部品項"];
+
+
+        // 🛡️ 防呆機制：如果遇到沒設定過的大區
+        default:
+          return ["全部品項"];
+      }
     }
    window.onload = async function() {
       const mainSelect = document.getElementById("main-area");
