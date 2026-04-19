@@ -88,24 +88,28 @@
     const db = {};
     let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
 
-   // 💡 核心分類引擎：加入「大區 (mainArea)」做情境判斷
+// 💡 核心分類引擎：精準攔截版
     function classifySubAreas(cabName, mainArea) {
       if (!cabName || cabName === "全部品項") return ["全部品項"];
       
-      // 🛑 修正：避免小區與實際儲位名稱 (B1) 混淆，明確標示為「門地下一層」
-      if (cabName.includes("B1")) return ["門地下一層"];
+      // 🚨 修正 1：把「調3」拉到最上面！優先判斷，避免「調3B1」被後面的 B1 規則誤抓
+      if (cabName.startsWith("調3")) return ["調劑檯3"];
+      
+      // 🚨 修正 2：明確定義地下室的規則。只要 Excel 裡寫「門地下一層」或「B1」，就歸到地下室
+      if (cabName.includes("門地下一層") || cabName === "B1" || cabName.startsWith("B1")) {
+        return ["門地下一層"];
+      }
       
       if (cabName.startsWith("ADC")) return ["ADC藥櫃"];
       
       // 只有「門診」才適用這些複雜的細分區與分身規則
       if (mainArea === "門診") {
-        if (cabName.startsWith("調3")) return ["調劑檯3"];
         if (cabName.startsWith("水")) return ["水藥台"];
         if (cabName.startsWith("專案")) return ["專案櫃"];
         if (cabName.startsWith("磨粉區")) return ["磨粉區"];
         if (cabName.startsWith("藥包機")) return ["藥包機"];
         
-        // 門診剩下沒有中文前綴的，自動分身給這三個調劑檯
+        // 門診剩下沒有中文前綴的 (包含您打的 E3 等)，自動分身給這三個調劑檯
         return ["調劑檯1", "調劑檯2", "調劑檯4"];
       }
 
