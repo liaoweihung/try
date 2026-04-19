@@ -2,139 +2,167 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>藥劑科盤點即時匯總報表</title>
+  <title>藥劑科盤點監控儀表板</title>
   <style>
-    body { font-family: 'Microsoft JhengHei', sans-serif; background: #f0f2f5; padding: 20px; }
-    .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    .search-box { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
-    input, select, button { padding: 10px; border-radius: 5px; border: 1px solid #ddd; font-size: 15px; }
-    button { background: #007bff; color: white; border: none; cursor: pointer; }
-    button:hover { background: #0056b3; }
-    table { width: 100%; border-collapse: collapse; background: white; }
-    th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
-    th { background: #f8f9fa; color: #555; font-weight: bold; }
-    .total-row { background: #fffde7; font-weight: bold; }
-    .highlight { color: #d32f2f; font-weight: bold; }
+    body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #f8fafc; padding: 20px; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+    .search-bar { width: 100%; display: flex; gap: 10px; margin-bottom: 25px; }
+    input { flex-grow: 1; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 16px; }
+    
+    /* 進度條樣式 */
+    .progress-container { margin-bottom: 15px; cursor: pointer; border: 1px solid transparent; padding: 10px; border-radius: 8px; transition: 0.2s; }
+    .progress-container:hover { border-color: #3b82f6; background: #eff6ff; }
+    .progress-label { display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; }
+    .progress-bar-bg { background: #e2e8f0; height: 12px; border-radius: 6px; overflow: hidden; }
+    .progress-bar-fill { background: #3b82f6; height: 100%; transition: width 0.5s ease-out; }
+
+    /* 麵包屑導航 */
+    .breadcrumb { margin-bottom: 15px; color: #64748b; font-size: 14px; }
+    .breadcrumb span { cursor: pointer; color: #3b82f6; }
+    .breadcrumb span:hover { text-decoration: underline; }
+
+    /* 表格樣式 */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+    th { background: #f8fafc; color: #475569; }
+    .qty-tag { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .qty-tag:hover { background: #22c55e; color: white; }
   </style>
 </head>
 <body>
 
 <div class="card">
-  <h2>💊 藥品即時匯總查詢</h2>
-  <div class="search-box">
-    <input type="text" id="drug-query" placeholder="輸入院內碼或商品名 (如: Concor)">
-    <button onclick="searchDrug()">🔍 全院/跨區查詢</button>
-    <div style="flex-grow:1"></div>
-    <select id="main-area-select" onchange="renderAreaReport()">
-      <option value="">-- 選擇大區報表 --</option>
-      <option value="門診">門診</option>
-      <option value="急診">急診</option>
-      <option value="藥庫">藥庫</option>
-      <option value="中山">中山</option>
-      <option value="化療">化療</option>
-    </select>
+  <h2>🏥 藥局盤點即時儀表板</h2>
+  <div class="search-bar">
+    <input type="text" id="global-search" placeholder="🔍 輸入院內碼或藥名，查看全院總庫存...">
+    <button onclick="handleGlobalSearch()" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer;">搜尋</button>
+  </div>
+  
+  <div id="nav-header" class="breadcrumb" style="display:none;"></div>
+  <div id="main-content">
+    <div id="loading-msg">⏳ 正在同步全院盤點數據...</div>
   </div>
 </div>
 
-<div id="result-container" class="card" style="display:none;">
-  <h3 id="result-title">報表結果</h3>
-  <table id="result-table">
-    <thead id="table-head"></thead>
-    <tbody id="table-body"></tbody>
-  </table>
-</div>
-
 <script>
-const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec"; 
-let rawData = []; // 原始紀錄
+const GAS_URL = "您的_GAS_網址"; 
+let masterData = []; // 應盤清單
+let recordData = []; // 已盤清單
+let currentView = { level: 'ROOT', area: null, sub: null, cab: null };
 
-// 🌟 您的核心分類引擎 (請保持與 inventory.html 一致)
-function classifySubAreas(cabName, mainArea, unit) {
-    if (mainArea === "中山") {
+// 核心分類引擎
+function classify(cab, area, unit) {
+    if (area === "中山") {
         const u = String(unit || "").toUpperCase();
         if (u === "CAP" || u === "TABL") return ["口服"];
         if (u === "TUBE" || u === "BTL" || u === "SACH") return ["外用"];
         if (u === "AMPU") return ["注射"];
         return ["其他"];
     }
-    if (cabName.startsWith("調3")) return ["調劑檯3"];
-    if (cabName.startsWith("ADC")) return ["ADC藥櫃"];
-    // ... 其餘規則略，請填入您完整的引擎 ...
-    return ["調劑檯1, 2, 4"]; 
+    // ... 這裡請放入您在 inventory.html 中修正好的完整 switch 引擎 ...
+    if (cab.startsWith("調3")) return ["調劑檯3"];
+    return ["一般調劑區"]; 
 }
 
-// 載入資料
 window.onload = async () => {
-    const res = await fetch(GAS_URL + "?action=getRawRecords");
-    rawData = await res.json();
-    console.log("資料已載入", rawData.length, "筆");
+    try {
+        const res = await fetch(GAS_URL + "?action=getReportData");
+        const json = await res.json();
+        masterData = json.master;
+        recordData = json.records;
+        renderRoot();
+    } catch(e) { document.getElementById('loading-msg').innerText = "❌ 載入失敗，請檢查 GAS 部署。"; }
 };
 
-// 功能 C & D：單一藥品跨區/大區整合數量
-function searchDrug() {
-    const query = document.getElementById("drug-query").value.toUpperCase();
-    if (!query) return;
+// A. 顯示各大區總進度
+function renderRoot() {
+    currentView = { level: 'ROOT' };
+    document.getElementById('nav-header').style.display = "none";
+    const container = document.getElementById('main-content');
+    container.innerHTML = "";
 
-    const filtered = rawData.filter(row => row[0].includes(query) || row[1].toUpperCase().includes(query));
-    
-    document.getElementById("result-container").style.display = "block";
-    document.getElementById("result-title").innerText = `🔍 藥品查詢結果: ${query}`;
-    
-    const head = document.getElementById("table-head");
-    head.innerHTML = `<tr><th>大區</th><th>小區</th><th>實際儲位</th><th>數量</th><th>紀錄時間</th></tr>`;
-    
-    const body = document.getElementById("table-body");
-    body.innerHTML = "";
-    
-    let total = 0;
-    filtered.forEach(row => {
-        const sub = classifySubAreas(row[4], row[5], row[3]);
-        total += parseFloat(row[2]);
-        body.innerHTML += `<tr><td>${row[5]}</td><td>${sub}</td><td>${row[4]}</td><td>${row[2]}</td><td>${row[6]}</td></tr>`;
+    const areas = [...new Set(masterData.map(r => r[6]))]; // 大區
+    areas.forEach(area => {
+        const totalItems = masterData.filter(r => r[6] === area).length;
+        const countedCodes = [...new Set(recordData.filter(r => r[5] === area).map(r => r[0]))];
+        const progress = Math.round((countedCodes.length / totalItems) * 100) || 0;
+
+        container.innerHTML += `
+            <div class="progress-container" onclick="renderSubAreas('${area}')">
+                <div class="progress-label">
+                    <span>${area}</span>
+                    <span>${progress}% (${countedCodes.length}/${totalItems} 品項)</span>
+                </div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${progress}%"></div></div>
+            </div>
+        `;
     });
-    
-    body.innerHTML += `<tr class="total-row"><td colspan="3">全院總計數量</td><td class="highlight">${total}</td><td></td></tr>`;
 }
 
-// 功能 A & B：大區下的小區加總報表
-function renderAreaReport() {
-    const mainArea = document.getElementById("main-area-select").value;
-    if (!mainArea) return;
+// B. 顯示小區進度
+function renderSubAreas(area) {
+    currentView = { level: 'AREA', area };
+    updateNav();
+    const container = document.getElementById('main-content');
+    container.innerHTML = "<h3>" + area + " - 各小區進度</h3>";
 
-    document.getElementById("result-container").style.display = "block";
-    document.getElementById("result-title").innerText = `📊 ${mainArea} - 分區匯總報表`;
-    
-    // 依據藥品院內碼與小區進行群組加總
-    const summary = {};
-    rawData.filter(row => row[5] === mainArea).forEach(row => {
-        const code = row[0];
-        const name = row[1];
-        const qty = parseFloat(row[2]);
-        const sub = classifySubAreas(row[4], row[5], row[3])[0];
-        
-        if (!summary[code]) summary[code] = { name: name, subs: {} };
-        if (!summary[code].subs[sub]) summary[code].subs[sub] = 0;
-        summary[code].subs[sub] += qty;
+    // 建立小區匯總
+    const subs = {};
+    masterData.filter(r => r[6] === area).forEach(r => {
+        const s = classify(r[4], area, r[3])[0];
+        if (!subs[s]) subs[s] = { total: 0, counted: new Set() };
+        subs[s].total++;
     });
 
-    const head = document.getElementById("table-head");
-    head.innerHTML = `<tr><th>院內碼</th><th>商品名</th><th>分區數量匯總</th><th>大區總計</th></tr>`;
-    
-    const body = document.getElementById("table-body");
-    body.innerHTML = "";
-
-    Object.keys(summary).forEach(code => {
-        const item = summary[code];
-        let subDetails = Object.entries(item.subs).map(([sub, q]) => `${sub}: ${q}`).join("<br>");
-        let areaTotal = Object.values(item.subs).reduce((a, b) => a + b, 0);
-        
-        body.innerHTML += `<tr>
-            <td>${code}</td>
-            <td>${item.name}</td>
-            <td>${subDetails}</td>
-            <td class="highlight">${areaTotal}</td>
-        </tr>`;
+    recordData.filter(r => r[5] === area).forEach(r => {
+        const s = classify(r[4], area, r[3])[0];
+        if (subs[s]) subs[s].counted.add(row[0]);
     });
+
+    Object.keys(subs).forEach(s => {
+        const p = Math.round((subs[s].counted.size / subs[s].total) * 100);
+        container.innerHTML += `
+            <div class="progress-container" onclick="renderCabinets('${area}', '${s}')">
+                <div class="progress-label"><span>${s}</span><span>${p}%</span></div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${p}%"></div></div>
+            </div>
+        `;
+    });
+}
+
+// C. 單品全院查詢邏輯
+function showGlobalQty(code, drugName) {
+    const records = recordData.filter(r => r[0] === code);
+    let total = 0;
+    let detailHtml = `<div style="padding:20px; border:2px solid #3b82f6; border-radius:12px; background:white; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:100; min-width:300px;">
+        <h3>${drugName} 全院分布</h3><hr><ul>`;
+    
+    records.forEach(r => {
+        total += parseFloat(r[2]);
+        detailHtml += `<li>${r[5]} (${r[4]}): <b>${r[2]}</b></li>`;
+    });
+    
+    detailHtml += `</ul><hr><div style="font-size:18px;">全院總計: <b style="color:red;">${total}</b></div>
+        <button onclick="this.parentElement.remove()" style="margin-top:15px; width:100%; padding:10px; border-radius:8px; cursor:pointer;">關閉</button>
+    </div>`;
+    
+    const div = document.createElement('div');
+    div.innerHTML = detailHtml;
+    document.body.appendChild(div);
+}
+
+function handleGlobalSearch() {
+    const q = document.getElementById('global-search').value.toUpperCase();
+    const drug = recordData.find(r => r[0].includes(q) || r[1].toUpperCase().includes(q));
+    if (drug) showGlobalQty(drug[0], drug[1]);
+    else alert("查無此藥品的盤點紀錄。");
+}
+
+function updateNav() {
+    const nav = document.getElementById('nav-header');
+    nav.style.display = "block";
+    nav.innerHTML = `<span onclick="renderRoot()">全院總覽</span>`;
+    if (currentView.area) nav.innerHTML += ` > <span onclick="renderSubAreas('${currentView.area}')">${currentView.area}</span>`;
 }
 </script>
 </body>
