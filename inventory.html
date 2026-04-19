@@ -80,7 +80,18 @@
     </div>
     <div id="history-list" style="font-size: 14px; color: #7f8c8d;">尚無紀錄</div>
   </div>
-
+<div style="background: #fff8e1; border: 2px solid #ffe082; padding: 15px; border-radius: 8px; margin: 15px 0;">
+  <label style="display: flex; align-items: center; cursor: pointer; font-size: 18px; font-weight: bold; color: #b98100;">
+    <input type="checkbox" id="offline-toggle" style="width: 25px; height: 25px; margin-right: 10px;">
+    啟用「盤點資料暫存在手機」模式
+  </label>
+  <div style="margin-top: 15px; border-top: 1px dashed #ffe082; padding-top: 15px;">
+    目前手機暫存：<span id="offline-count" style="font-size: 24px; font-weight: bold; color: #d32f2f;">0</span> 筆
+    <button onclick="processOfflineQueue()" id="btn-upload-offline" style="width: 100%; padding: 12px; margin-top: 10px; background: #2e7d32; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;">
+      ☁️ 一鍵全部上傳
+    </button>
+  </div>
+</div>
   <script>
     // ⚠️ 請務必替換為您的 GAS 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
@@ -406,6 +417,25 @@ window.onload = async function() {
       btn.innerText = "資料傳送中...";
       btn.disabled = true;
 
+      // 💡 插入開始：檢查開關是否有打開
+  const isOffline = document.getElementById("offline-toggle") && document.getElementById("offline-toggle").checked;
+  
+  if (isOffline) {
+    // payload 是你原本打包好的那個物件變數 (包含 desk, items 等)
+    offlineQueue.push(payload); 
+    localStorage.setItem("offlineQueue", JSON.stringify(offlineQueue));
+    updateOfflineUI();
+    
+    alert("✅ 網路不穩免驚！已暫存於手機中。");
+    
+    // 🚨 這裡請加入你原本「清空輸入框」的程式碼，例如:
+    // currentItems = [];
+    // renderTable(); 
+
+    return; // 直接終止函數，不再往下執行原本的 fetch 網路傳送
+  }
+  // 💡 插入結束。下方保留你原本的 fetch 網路傳送程式碼...
+      
       fetch(GAS_URL, {
         method: "POST",
         body: JSON.stringify(payload)
@@ -481,6 +511,64 @@ window.onload = async function() {
         updateSubArea(); 
       }
     }
+    // ==========================================
+// 📦 離線暫存大管家系統
+// ==========================================
+let offlineQueue = JSON.parse(localStorage.getItem("offlineQueue")) || [];
+
+// 更新畫面的數字
+function updateOfflineUI() {
+  const countSpan = document.getElementById("offline-count");
+  if(countSpan) countSpan.innerText = offlineQueue.length;
+}
+
+// 網頁一打開就檢查有沒有上次忘記傳的
+window.addEventListener('load', updateOfflineUI);
+
+// 一鍵批次上傳功能
+async function processOfflineQueue() {
+  if (offlineQueue.length === 0) return alert("目前手機內沒有暫存資料喔！");
+
+  const btn = document.getElementById("btn-upload-offline");
+  btn.innerText = "上傳中，請勿關閉畫面 ⏳...";
+  btn.disabled = true;
+
+  let successCount = 0;
+  const total = offlineQueue.length;
+
+  // 讓手機「依序」幫你送資料給 GAS，避免一次塞爆網路
+  for (let i = 0; i < total; i++) {
+    try {
+      // 取出隊伍排第一位的資料送出
+      const response = await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify(offlineQueue[0]) 
+      });
+      
+      const result = await response.json();
+      
+      if (result.status === "success") {
+        successCount++;
+        offlineQueue.shift(); // 傳送成功，就把它從隊伍中踢掉
+        localStorage.setItem("offlineQueue", JSON.stringify(offlineQueue));
+        updateOfflineUI();
+      }
+    } catch(e) {
+      console.error("網路異常中斷");
+      break; // 網路如果斷了就馬上停止，剩下的保留在手機裡
+    }
+  }
+
+  // 恢復按鈕狀態
+  btn.innerText = "☁️ 一鍵全部上傳";
+  btn.disabled = false;
+
+  if (offlineQueue.length === 0) {
+    alert("🎉 太棒了！所有暫存資料已全數上傳成功！");
+  } else {
+    alert(`已成功上傳 ${successCount} 筆。剩餘 ${offlineQueue.length} 筆傳送失敗，請移至網路良好處再按一次上傳。`);
+  }
+}
   </script>
 </body>
 </html>
