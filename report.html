@@ -7,11 +7,6 @@
   <style>
     body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #f1f5f9; padding: 20px; color: #1e293b; line-height: 1.6; }
     .container { max-width: 1000px; margin: 0 auto; }
-    
-    /* 💡 操作說明提示框 */
-    .alert-info { background: #eff6ff; border-left: 5px solid #3b82f6; padding: 15px 20px; border-radius: 8px; margin-bottom: 24px; color: #1d4ed8; font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .alert-info strong { color: #1e40af; }
-
     .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 24px; }
     
     /* 搜尋欄位 */
@@ -39,33 +34,32 @@
     th { background: #f8fafc; color: #64748b; font-size: 14px; }
     tr:hover { background: #f8fafc; }
     
-    /* 🎯 狀態標籤顏色區分 */
     .badge-counted { background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; min-width: 40px; text-align: center; border: 1px solid #bbf7d0; }
     .badge-uncounted { background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block; border: 1px solid #fecaca; }
 
     /* 浮動視窗 (Modal) */
     #search-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; }
     .modal-content { background: white; padding: 30px; border-radius: 16px; width: 90%; max-width: 550px; max-height: 80vh; overflow-y: auto; }
+    
+    /* 搜尋清單項目 */
+    .search-list-item { padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+    .search-list-item:hover { border-color: #3b82f6; background: #eff6ff; }
+
+    /* 💡 操作說明提示框 (移到底部) */
+    .alert-info { background: #f8fafc; border-top: 4px solid #cbd5e1; padding: 20px; border-radius: 8px; margin-top: 30px; color: #475569; font-size: 14px; box-shadow: 0 -2px 10px rgba(0,0,0,0.02); }
+    .alert-info strong { color: #334155; font-size: 16px; }
   </style>
 </head>
 <body>
 
 <div class="container">
   
-  <div class="alert-info">
-    <strong>📋 報表使用指南：</strong><br>
-    1. 點擊各大區（如門診）即可展開內部小區進度，再點擊小區即可查看藥品清單。<br>
-    2. 請利用上方的 <strong>「藍色路徑連結」</strong>（例如：<u>全院總覽</u> > <u>門診</u>）來返回上一層。<br>
-    3. ⚠️ <strong>請避免點擊瀏覽器的「上一頁」</strong>，否則頁面會重新載入，浪費您等待資料的時間。<br>
-    4. 搜尋功能支援模糊比對，可輸入部分藥名或院內碼，例如輸入「<code>concor 1.25</code>」。
-  </div>
-
   <div class="card">
     <h2 style="margin-top:0;">📊 藥劑科盤點監控中心</h2>
     
     <div class="search-section">
-      <input type="text" id="drugSearch" placeholder="🔍 全院搜尋：輸入部分院內碼或藥名 (支援空白分隔多組關鍵字)..." onkeypress="if(event.keyCode==13) globalSearch()">
-      <button class="btn-search" onclick="globalSearch()">搜尋全院數量</button>
+      <input type="text" id="drugSearch" placeholder="🔍 輸入院內碼或藥名 (支援空白分隔)..." onkeypress="if(event.keyCode==13) globalSearch()">
+      <button class="btn-search" onclick="globalSearch()">搜尋</button>
     </div>
 
     <div id="nav-container" class="breadcrumb"></div>
@@ -73,13 +67,23 @@
       <p style="color: #64748b;">⏳ 正在連線後台同步數據中，請稍候...</p>
     </div>
   </div>
+
+  <div class="alert-info">
+    <strong>📋 系統操作說明：</strong><br><br>
+    1. <b>階層瀏覽：</b> 點擊各大區（如門診）即可展開內部小區進度，再點擊小區即可查看該區藥品清單。<br>
+    2. <b>返回上層：</b> 請利用畫面上方的 <b>「藍色路徑連結」</b>（例如：<u>🏠 全院總覽</u> &gt; <u>門診</u>）來返回上一層。<br>
+    3. <b>防呆提醒：</b> ⚠️ 請避免點擊瀏覽器的「上一頁」按鈕，否則整個頁面會重新載入，需重新等待資料同步。<br>
+    4. <b>全院搜尋：</b> 支援模糊比對與多重條件。例如輸入「<code>concor 5</code>」會列出符合此條件的藥品清單，點選即可查看全院各區分布與總盤點量。
+  </div>
+
 </div>
 
 <script>
   // 🚨 請務必替換成您最新的 GAS 網址
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec"; 
+  const GAS_URL = "在此貼上您的_GAS_網址"; 
   
   let dashboardData = {}; 
+  let currentSearchData = {}; // 用於暫存搜尋到的獨特藥品清單
 
   window.onload = async function() {
     try {
@@ -156,7 +160,6 @@
         <tbody>`;
     
     items.forEach(it => {
-      // 🎯 根據 isCounted 決定顯示顏色與文字
       const statusBadge = it.isCounted 
         ? `<span class="badge-counted">${it.qty}</span>` 
         : `<span class="badge-uncounted">未盤點</span>`;
@@ -181,57 +184,127 @@
     document.getElementById('nav-container').innerHTML = html;
   }
 
-  // 🌟 強化的模糊搜尋功能
+  // ==========================================
+  // 🌟 強化的智能搜尋引擎 (列表選擇 -> 詳細分布)
+  // ==========================================
   function globalSearch() {
     const rawQuery = document.getElementById('drugSearch').value.trim();
     if (!rawQuery) return;
 
-    // 將搜尋字串轉大寫，並以空白切割成多個關鍵字陣列
     const keywords = rawQuery.toUpperCase().split(/\s+/);
-    
-    let results = [];
-    let totalQty = 0;
-    let drugName = "";
+    let matchedRawItems = [];
 
+    // 1. 抓出所有符合關鍵字的資料
     Object.keys(dashboardData).forEach(area => {
       Object.keys(dashboardData[area].subs).forEach(sub => {
         dashboardData[area].subs[sub].items.forEach(it => {
-          
-          // 將院內碼與藥名組合在一起進行全文檢索
           const searchTarget = (it.code + " " + it.name).toUpperCase();
-          
-          // 必須滿足「所有」切割出來的關鍵字才算命中 (例如輸入 "MBI 中山" 會找兩者皆有)
-          const isMatch = keywords.every(kw => searchTarget.includes(kw));
-
-          if (isMatch) {
-            results.push({ area, sub, ...it });
-            if (it.isCounted) totalQty += parseFloat(it.qty) || 0;
-            if (!drugName) drugName = it.name; // 取第一個命中的藥名作為標題
+          if (keywords.every(kw => searchTarget.includes(kw))) {
+            matchedRawItems.push({ area, sub, ...it });
           }
         });
       });
     });
 
-    if (results.length === 0) {
+    if (matchedRawItems.length === 0) {
       alert("查無此藥品。請嘗試減少關鍵字，或確認是否尚未在主檔中。");
       return;
     }
 
+    // 2. 以「院內碼」為單位，將散落各區的紀錄進行群組化
+    currentSearchData = {}; 
+    matchedRawItems.forEach(item => {
+      if (!currentSearchData[item.code]) {
+        currentSearchData[item.code] = {
+          code: item.code,
+          name: item.name,
+          spec: item.spec,
+          totalQty: 0,
+          locations: []
+        };
+      }
+      currentSearchData[item.code].locations.push(item);
+      if (item.isCounted) {
+        currentSearchData[item.code].totalQty += parseFloat(item.qty) || 0;
+      }
+    });
+
+    const uniqueCodes = Object.keys(currentSearchData);
+    
+    // 3. 檢查是否有「完全精準命中」院內碼或藥名
+    let exactMatchCode = null;
+    uniqueCodes.forEach(code => {
+      if (code.toUpperCase() === rawQuery.toUpperCase() || 
+          currentSearchData[code].name.toUpperCase() === rawQuery.toUpperCase()) {
+        exactMatchCode = code;
+      }
+    });
+
+    // 清除舊視窗
     const existing = document.getElementById('search-modal-overlay');
     if (existing) existing.remove();
+
+    // 4. 路由判斷：完全命中 或 只有一種藥 -> 直達詳細分布； 否則 -> 顯示選單
+    if (exactMatchCode) {
+      showDrugDetail(exactMatchCode);
+    } else if (uniqueCodes.length === 1) {
+      showDrugDetail(uniqueCodes[0]);
+    } else {
+      showSelectionList(rawQuery);
+    }
+  }
+
+  // 顯示「選擇藥品」選單
+  function showSelectionList(query) {
+    let modalHtml = `
+      <div id="search-modal-overlay" onclick="this.remove()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+          <h3 style="margin-top:0; border-bottom:2px solid #3b82f6; padding-bottom:10px;">
+            🔍 搜尋 "${query}"：找到多筆藥品
+          </h3>
+          <p style="color:#64748b; font-size:14px; margin-bottom:15px;">請點擊您要查看的藥品：</p>
+          <div style="max-height: 50vh; overflow-y: auto;">
+    `;
+
+    Object.keys(currentSearchData).forEach(code => {
+      const drug = currentSearchData[code];
+      modalHtml += `
+        <div class="search-list-item" onclick="showDrugDetail('${code}')">
+          <div style="font-weight:bold; color:#1e293b; font-size:16px;">${drug.name}</div>
+          <div style="color:#64748b; font-size:13px; margin-top:4px;">代碼: ${drug.code} | 規格: ${drug.spec}</div>
+        </div>
+      `;
+    });
+
+    modalHtml += `
+          </div>
+          <button onclick="document.getElementById('search-modal-overlay').remove()" style="width:100%; margin-top:20px; padding:12px; border-radius:8px; border:none; background:#f8fafc; border:1px solid #cbd5e1; color:#334155; cursor:pointer; font-weight:bold; font-size:16px;">取消</button>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  }
+
+  // 顯示「單一藥品」的全院分布
+  function showDrugDetail(code) {
+    // 若是從清單點過來的，先清掉當前視窗
+    const existing = document.getElementById('search-modal-overlay');
+    if (existing) existing.remove();
+
+    const drug = currentSearchData[code];
 
     let modalHtml = `
       <div id="search-modal-overlay" onclick="this.remove()">
         <div class="modal-content" onclick="event.stopPropagation()">
           <h3 style="margin-top:0; border-bottom:2px solid #3b82f6; padding-bottom:10px;">
-            💊 ${drugName || rawQuery}
+            💊 ${drug.name}
           </h3>
-          <p style="color:#64748b; font-size:14px;">全院各區分布狀況：</p>
-          <div style="margin: 20px 0; max-height: 40vh; overflow-y: auto;">
+          <p style="color:#64748b; font-size:14px; margin-bottom: 5px;">代碼: ${drug.code}</p>
+          <p style="color:#64748b; font-size:14px; margin-top: 0;">全院各區分布狀況：</p>
+          <div style="margin: 15px 0; max-height: 40vh; overflow-y: auto;">
     `;
 
-    results.forEach(r => {
-      // 搜尋結果也同步顯示顏色標籤
+    drug.locations.forEach(r => {
       const statusBadge = r.isCounted 
         ? `<span class="badge-counted">${r.qty}</span>` 
         : `<span class="badge-uncounted">未盤點</span>`;
@@ -241,7 +314,7 @@
           <div>
             <span style="color:#3b82f6; font-weight:bold; width:60px; display:inline-block;">${r.area}</span>
             <span style="color:#1e293b; font-weight:bold;">${r.sub}</span>
-            <div style="font-size:13px; color:#64748b; margin-top:4px;">代碼: ${r.code} | 儲位: ${r.cab}</div>
+            <div style="font-size:13px; color:#64748b; margin-top:4px;">儲位: ${r.cab}</div>
           </div>
           <div>${statusBadge}</div>
         </div>`;
@@ -250,13 +323,12 @@
     modalHtml += `
           </div>
           <div style="text-align:right; font-size:18px; border-top:1px solid #e2e8f0; padding-top:15px;">
-            全院已盤總計：<span style="color:#ef4444; font-size:26px; font-weight:bold;">${totalQty}</span>
+            全院已盤總計：<span style="color:#ef4444; font-size:26px; font-weight:bold;">${drug.totalQty}</span>
           </div>
           <button onclick="document.getElementById('search-modal-overlay').remove()" style="width:100%; margin-top:20px; padding:12px; border-radius:8px; border:none; background:#f8fafc; border:1px solid #cbd5e1; color:#334155; cursor:pointer; font-weight:bold; font-size:16px;">關閉視窗</button>
         </div>
       </div>
     `;
-
     document.body.insertAdjacentHTML('beforeend', modalHtml);
   }
 </script>
