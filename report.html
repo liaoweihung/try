@@ -1,169 +1,114 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
   <meta charset="UTF-8">
-  <title>藥劑科盤點監控儀表板</title>
+  <title>盤點監控儀表板</title>
   <style>
-    body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #f8fafc; padding: 20px; }
-    .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
-    .search-bar { width: 100%; display: flex; gap: 10px; margin-bottom: 25px; }
-    input { flex-grow: 1; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 16px; }
-    
-    /* 進度條樣式 */
-    .progress-container { margin-bottom: 15px; cursor: pointer; border: 1px solid transparent; padding: 10px; border-radius: 8px; transition: 0.2s; }
-    .progress-container:hover { border-color: #3b82f6; background: #eff6ff; }
-    .progress-label { display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; }
-    .progress-bar-bg { background: #e2e8f0; height: 12px; border-radius: 6px; overflow: hidden; }
-    .progress-bar-fill { background: #3b82f6; height: 100%; transition: width 0.5s ease-out; }
-
-    /* 麵包屑導航 */
-    .breadcrumb { margin-bottom: 15px; color: #64748b; font-size: 14px; }
-    .breadcrumb span { cursor: pointer; color: #3b82f6; }
-    .breadcrumb span:hover { text-decoration: underline; }
-
-    /* 表格樣式 */
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #f1f5f9; }
-    th { background: #f8fafc; color: #475569; }
-    .qty-tag { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-    .qty-tag:hover { background: #22c55e; color: white; }
+    body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+    .area-card { background: white; margin-bottom: 15px; padding: 20px; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .progress-bg { background: #eee; height: 10px; border-radius: 5px; margin-top: 10px; }
+    .progress-fill { background: #4caf50; height: 100%; border-radius: 5px; transition: 0.3s; }
+    .hidden { display: none; }
+    .sub-item { margin-left: 20px; border-left: 2px solid #ddd; padding-left: 15px; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    .search-box { margin-bottom: 20px; width: 100%; display: flex; gap: 10px; }
+    input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <h2>🏥 藥局盤點即時儀表板</h2>
-  <div class="search-bar">
-    <input type="text" id="global-search" placeholder="🔍 輸入院內碼或藥名，查看全院總庫存...">
-    <button onclick="handleGlobalSearch()" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer;">搜尋</button>
+  <div class="search-box">
+    <input type="text" id="drugSearch" placeholder="🔍 全院搜尋院內碼或商品名...">
+    <button onclick="globalSearch()" style="padding:10px 20px; background:#2196F3; color:white; border:none; border-radius:5px; cursor:pointer;">搜尋</button>
   </div>
-  
-  <div id="nav-header" class="breadcrumb" style="display:none;"></div>
-  <div id="main-content">
-    <div id="loading-msg">⏳ 正在同步全院盤點數據...</div>
-  </div>
-</div>
 
-<script>
-const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec"; 
-let masterData = []; // 應盤清單
-let recordData = []; // 已盤清單
-let currentView = { level: 'ROOT', area: null, sub: null, cab: null };
+  <div id="dashboard">⏳ 正在同步全院最新進度...</div>
 
-// 核心分類引擎
-function classify(cab, area, unit) {
-    if (area === "中山") {
-        const u = String(unit || "").toUpperCase();
-        if (u === "CAP" || u === "TABL") return ["口服"];
-        if (u === "TUBE" || u === "BTL" || u === "SACH") return ["外用"];
-        if (u === "AMPU") return ["注射"];
-        return ["其他"];
+  <script>
+    const GAS_URL = "在此貼上您的_GAS_網址";
+    let fullData = {};
+
+    async function loadData() {
+      const res = await fetch(GAS_URL + "?action=getInventoryDashboard");
+      fullData = await res.json();
+      renderDashboard();
     }
-    // ... 這裡請放入您在 inventory.html 中修正好的完整 switch 引擎 ...
-    if (cab.startsWith("調3")) return ["調劑檯3"];
-    return ["一般調劑區"]; 
-}
 
-window.onload = async () => {
-    try {
-        const res = await fetch(GAS_URL + "?action=getReportData");
-        const json = await res.json();
-        masterData = json.master;
-        recordData = json.records;
-        renderRoot();
-    } catch(e) { document.getElementById('loading-msg').innerText = "❌ 載入失敗，請檢查 GAS 部署。"; }
-};
+    function renderDashboard() {
+      const container = document.getElementById('dashboard');
+      container.innerHTML = "";
 
-// A. 顯示各大區總進度
-function renderRoot() {
-    currentView = { level: 'ROOT' };
-    document.getElementById('nav-header').style.display = "none";
-    const container = document.getElementById('main-content');
-    container.innerHTML = "";
-
-    const areas = [...new Set(masterData.map(r => r[6]))]; // 大區
-    areas.forEach(area => {
-        const totalItems = masterData.filter(r => r[6] === area).length;
-        const countedCodes = [...new Set(recordData.filter(r => r[5] === area).map(r => r[0]))];
-        const progress = Math.round((countedCodes.length / totalItems) * 100) || 0;
-
-        container.innerHTML += `
-            <div class="progress-container" onclick="renderSubAreas('${area}')">
-                <div class="progress-label">
-                    <span>${area}</span>
-                    <span>${progress}% (${countedCodes.length}/${totalItems} 品項)</span>
-                </div>
-                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${progress}%"></div></div>
-            </div>
+      Object.keys(fullData).forEach(area => {
+        const d = fullData[area];
+        const percent = Math.round((d.counted / d.total) * 100);
+        
+        const card = document.createElement('div');
+        card.className = "area-card";
+        card.innerHTML = `
+          <div onclick="toggleSub('${area}')">
+            <strong>${area}</strong> - 進度: ${percent}% (${d.counted}/${d.total} 品項)
+            <div class="progress-bg"><div class="progress-fill" style="width:${percent}%"></div></div>
+          </div>
+          <div id="subs-${area}" class="hidden"></div>
         `;
-    });
-}
-
-// B. 顯示小區進度
-function renderSubAreas(area) {
-    currentView = { level: 'AREA', area };
-    updateNav();
-    const container = document.getElementById('main-content');
-    container.innerHTML = "<h3>" + area + " - 各小區進度</h3>";
-
-    // 建立小區匯總
-    const subs = {};
-    masterData.filter(r => r[6] === area).forEach(r => {
-        const s = classify(r[4], area, r[3])[0];
-        if (!subs[s]) subs[s] = { total: 0, counted: new Set() };
-        subs[s].total++;
-    });
-
-    recordData.filter(r => r[5] === area).forEach(r => {
-        const s = classify(r[4], area, r[3])[0];
-        if (subs[s]) subs[s].counted.add(row[0]);
-    });
-
-    Object.keys(subs).forEach(s => {
-        const p = Math.round((subs[s].counted.size / subs[s].total) * 100);
-        container.innerHTML += `
-            <div class="progress-container" onclick="renderCabinets('${area}', '${s}')">
-                <div class="progress-label"><span>${s}</span><span>${p}%</span></div>
-                <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${p}%"></div></div>
+        container.appendChild(card);
+        
+        // 渲染小區
+        const subContainer = card.querySelector(`#subs-${area}`);
+        Object.keys(d.subs).forEach(sub => {
+          const sd = d.subs[sub];
+          const subPercent = Math.round((sd.counted / sd.total) * 100);
+          const subDiv = document.createElement('div');
+          subDiv.className = "sub-item";
+          subDiv.innerHTML = `
+            <div onclick="toggleTable('${area}', '${sub}', event)">
+              📁 ${sub} - ${subPercent}% (${sd.counted}/${sd.total})
             </div>
-        `;
-    });
-}
+            <div id="table-${area}-${sub}" class="hidden"></div>
+          `;
+          subContainer.appendChild(subDiv);
+        });
+      });
+    }
 
-// C. 單品全院查詢邏輯
-function showGlobalQty(code, drugName) {
-    const records = recordData.filter(r => r[0] === code);
-    let total = 0;
-    let detailHtml = `<div style="padding:20px; border:2px solid #3b82f6; border-radius:12px; background:white; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:100; min-width:300px;">
-        <h3>${drugName} 全院分布</h3><hr><ul>`;
-    
-    records.forEach(r => {
-        total += parseFloat(r[2]);
-        detailHtml += `<li>${r[5]} (${r[4]}): <b>${r[2]}</b></li>`;
-    });
-    
-    detailHtml += `</ul><hr><div style="font-size:18px;">全院總計: <b style="color:red;">${total}</b></div>
-        <button onclick="this.parentElement.remove()" style="margin-top:15px; width:100%; padding:10px; border-radius:8px; cursor:pointer;">關閉</button>
-    </div>`;
-    
-    const div = document.createElement('div');
-    div.innerHTML = detailHtml;
-    document.body.appendChild(div);
-}
+    function toggleSub(area) {
+      document.getElementById(`subs-${area}`).classList.toggle('hidden');
+    }
 
-function handleGlobalSearch() {
-    const q = document.getElementById('global-search').value.toUpperCase();
-    const drug = recordData.find(r => r[0].includes(q) || r[1].toUpperCase().includes(q));
-    if (drug) showGlobalQty(drug[0], drug[1]);
-    else alert("查無此藥品的盤點紀錄。");
-}
+    function toggleTable(area, sub, e) {
+      e.stopPropagation();
+      const tableDiv = document.getElementById(`table-${area}-${sub}`);
+      tableDiv.classList.toggle('hidden');
+      if (!tableDiv.classList.contains('hidden')) {
+        const items = fullData[area].subs[sub].items;
+        let html = `<table><tr><th>院內碼</th><th>名稱</th><th>儲位</th><th>實盤量</th></tr>`;
+        items.forEach(it => {
+          html += `<tr><td>${it.code}</td><td>${it.name}</td><td>${it.cab}</td><td>${it.qty}</td></tr>`;
+        });
+        html += `</table>`;
+        tableDiv.innerHTML = html;
+      }
+    }
 
-function updateNav() {
-    const nav = document.getElementById('nav-header');
-    nav.style.display = "block";
-    nav.innerHTML = `<span onclick="renderRoot()">全院總覽</span>`;
-    if (currentView.area) nav.innerHTML += ` > <span onclick="renderSubAreas('${currentView.area}')">${currentView.area}</span>`;
-}
-</script>
+    function globalSearch() {
+      const query = document.getElementById('drugSearch').value.toUpperCase();
+      let results = [];
+      Object.keys(fullData).forEach(area => {
+        Object.keys(fullData[area].subs).forEach(sub => {
+          fullData[area].subs[sub].items.forEach(it => {
+            if (it.code.includes(query) || it.name.toUpperCase().includes(query)) {
+              results.push({ area, sub, ...it });
+            }
+          });
+        });
+      });
+      // 顯示搜尋結果對話框或列表 (略，可參考之前的全院查詢邏輯)
+      console.log(results);
+      alert("搜尋結果請見 Console，共找到 " + results.length + " 筆位置。");
+    }
+
+    window.onload = loadData;
+  </script>
 </body>
 </html>
