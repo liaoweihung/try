@@ -177,7 +177,7 @@
           return ["全部品項"];
       }
     }
-   window.onload = async function() {
+window.onload = async function() {
       const mainSelect = document.getElementById("main-area");
       const startBtn = document.querySelector("button[onclick='startInventory()']");
       
@@ -197,9 +197,9 @@
           
           const name = String(row[1] || "").trim();
           const spec = String(row[2] || "").trim();
-          const unit = String(row[3] || "").trim();
-          const cab1 = String(row[4] || "").trim(); // 第一儲位
-          const cab2 = String(row[5] || "").trim(); // 第二儲位
+          const unit = String(row[3] || "").trim(); // 📦 抓取庫存單位 (供中山區分類使用)
+          const cab1 = String(row[4] || "").trim(); 
+          const cab2 = String(row[5] || "").trim(); 
           const mainArea = String(row[6] || "").trim();
 
           if (!mainArea) return; 
@@ -208,14 +208,15 @@
           let rawCabinets = [];
           if (cab1) rawCabinets.push(...cab1.split(/[,、，+/]/).map(s => s.trim()).filter(s => s));
           if (cab2) rawCabinets.push(...cab2.split(/[,、，+/]/).map(s => s.trim()).filter(s => s));
-
-// 🚨 關鍵修正 2：如果 E 欄跟 F 欄都是空的，強制貼上「未設儲位」標籤
+          
+          // 🚨 確保空白儲位會被標記為「未設儲位」
           if (rawCabinets.length === 0) rawCabinets.push("未設儲位");
+
           if (!db[mainArea]) db[mainArea] = {};
 
           rawCabinets.forEach(cab => {
-            // 🚨 關鍵修正：確實把 mainArea 傳入引擎！
-            const subAreas = classifySubAreas(cab, mainArea);
+            // 🚨 這裡就是呼叫分類引擎的地方！現在已經確實把 unit 傳進去了
+            const subAreas = classifySubAreas(cab, mainArea, unit);
             
             subAreas.forEach(sub => {
               if (!db[mainArea][sub]) db[mainArea][sub] = {};
