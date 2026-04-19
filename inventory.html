@@ -93,8 +93,8 @@
       // 🌟 絕對優先權 1：中山區專屬 VIP 通道！(無視儲位，只看單位)
       if (mainArea === "中山") {
         const u = String(unit || "").toUpperCase();
-        if (u === "CAP" || u === "TABL") return ["口服"];
-        if (u === "TUBE" || u === "BTL" || u === "SACH") return ["外用"];
+        if (u === "CAPS" || u === "TABL") return ["口服"];
+        if (u === "TUBE" || u === "BTL" || u === "PACH" || u === "SACH") return ["外用"];
         if (u === "AMPU") return ["注射"];
         
         // 如果中山區有藥品單位不符合上面三個，才把它丟去未設儲位或其他
