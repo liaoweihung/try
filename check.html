@@ -14,10 +14,13 @@
     .btn-submit { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 18px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3); cursor: pointer; }
     .btn-submit:disabled { background: #95a5a6; box-shadow: none; cursor: not-allowed; }
     
-    .task-card { border: 1px solid #e2e8f0; padding: 15px; border-radius: 10px; margin-bottom: 15px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .task-card { border: 1px solid #e2e8f0; padding: 15px; border-radius: 10px; margin-bottom: 15px; background: #fff; border-left: 5px solid #3498db; }
     .drug-title { font-size: 18px; font-weight: bold; color: #1e293b; margin-bottom: 5px; }
     .drug-meta { font-size: 14px; color: #64748b; margin-bottom: 10px; display: flex; justify-content: space-between; }
     .loc-badge { background: #e0f2fe; color: #0284c7; padding: 3px 8px; border-radius: 6px; font-weight: bold; }
+    
+    .flex-row { display: flex; gap: 10px; }
+    .flex-row > div { flex: 1; }
     
     .recent-item { padding: 10px 0; border-bottom: 1px dashed #cbd5e1; font-size: 14px; }
     .recent-item:last-child { border-bottom: none; }
@@ -26,26 +29,31 @@
 </head>
 <body>
 
-  <h2>📋 現場抽盤任務</h2>
+  <h2>🔎 現場抽盤作業</h2>
 
   <div class="card">
-    <label>👤 盤點人員 (必填)</label>
-    <input type="text" id="staff-name" placeholder="請輸入姓名或代號...">
-
-    <label>📅 選擇任務日期</label>
-    <select id="task-date" onchange="loadTasks()">
-      <option value="" disabled selected>⏳ 正在讀取待盤點日期...</option>
-    </select>
+    <div class="flex-row">
+      <div>
+        <label>👤 盤點人員 (必填)</label>
+        <input type="text" id="staff-name" placeholder="姓名或代號">
+      </div>
+      <div>
+        <label>📅 任務日期</label>
+        <select id="task-date" onchange="loadTasks()">
+          <option value="" disabled selected>⏳ 讀取中...</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <div id="tasks-container" style="display: none;">
     <h3 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;">📍 待盤點清單</h3>
     <div id="task-list"></div>
-    <button class="btn-submit" id="submit-btn" onclick="submitAudit()">✅ 確認送出結果</button>
+    <button class="btn-submit" id="submit-btn" onclick="submitAudit()">✅ 確認上傳結果</button>
   </div>
 
   <div class="card" style="margin-top: 30px;">
-    <h3 style="margin-top: 0; color: #7f8c8d;">🕒 最近完成的抽盤紀錄</h3>
+    <h3 style="margin-top: 0; color: #7f8c8d;">🕒 雲端最新上傳紀錄</h3>
     <div id="recent-list" style="color: #64748b; font-size: 14px;">載入中...</div>
   </div>
 
@@ -55,18 +63,24 @@
     let currentTasks = [];
 
     window.onload = async function() {
+      const savedName = localStorage.getItem("savedStaffName");
+      if (savedName) document.getElementById('staff-name').value = savedName;
       await fetchAvailableDates();
       await loadRecentRecords();
     };
+
+    function getNoCacheUrl(baseAction) {
+      return GAS_URL + "?action=" + baseAction + "&t=" + new Date().getTime();
+    }
 
     // 取得有任務的日期
     async function fetchAvailableDates() {
       const select = document.getElementById('task-date');
       try {
-        const res = await fetch(GAS_URL + "?action=getAuditDates");
+        const res = await fetch(getNoCacheUrl("getAuditDates"));
         const dates = await res.json();
         
-        select.innerHTML = '<option value="" disabled selected>請選擇有任務的日期...</option>';
+        select.innerHTML = '<option value="" disabled selected>-- 請選擇任務日期 --</option>';
         if (dates.length === 0) {
           select.innerHTML = '<option value="" disabled selected>🎉 目前無待盤點任務</option>';
         } else {
@@ -89,7 +103,7 @@
       container.style.display = "block";
 
       try {
-        const res = await fetch(GAS_URL + "?action=getAuditTasks&date=" + date);
+        const res = await fetch(getNoCacheUrl("getAuditTasks") + "&date=" + date);
         currentTasks = await res.json();
 
         if (currentTasks.length === 0) {
@@ -103,13 +117,22 @@
         
         currentTasks.forEach((task, index) => {
           list.innerHTML += `
-            <div class="task-card">
+            <div class="task-card" data-index="${index}">
               <div class="drug-title">${task.name}</div>
               <div class="drug-meta">
                 <span>代碼: ${task.code}</span>
                 <span class="loc-badge">${task.loc}</span>
               </div>
-              <input type="number" id="qty-${index}" placeholder="請點完後輸入實際數量..." inputmode="numeric">
+              <div class="flex-row">
+                <div>
+                  <label>實盤數量：</label>
+                  <input type="number" id="qty-${index}" placeholder="數量" inputmode="numeric">
+                </div>
+                <div>
+                  <label>最舊效期：</label>
+                  <input type="date" id="expiry-${index}">
+                </div>
+              </div>
             </div>
           `;
         });
@@ -124,29 +147,44 @@
       const taskDate = document.getElementById('task-date').value;
       
       if (!staffName) return alert("⚠️ 請先輸入盤點人員姓名！");
+      localStorage.setItem("savedStaffName", staffName);
 
       const itemsToSubmit = [];
-      let hasEmpty = false;
+      let hasError = false;
 
       currentTasks.forEach((task, index) => {
         const qtyVal = document.getElementById(`qty-${index}`).value;
+        const expiryVal = document.getElementById(`expiry-${index}`).value;
+
+        // 如果數量和效期都沒填，代表跳過此項不盤點
+        if (qtyVal === "" && !expiryVal) return; 
+
+        // 防呆：有填數量就必須填效期，反之亦然
         if (qtyVal === "") {
-          hasEmpty = true;
-        } else {
+          alert(`⚠️ 您選擇了「${task.name}」的效期，但忘記填寫實盤數量！`);
+          hasError = true;
+        } else if (!expiryVal) {
+          alert(`⚠️ 您填寫了「${task.name}」的數量，但忘記選擇最舊效期！`);
+          hasError = true;
+        }
+
+        if (qtyVal !== "" && expiryVal) {
           itemsToSubmit.push({
             rowIdx: task.rowIdx,
             code: task.code,
             name: task.name,
             loc: task.loc,
-            qty: qtyVal
+            qty: qtyVal,
+            expiry: expiryVal
           });
         }
       });
 
+      if (hasError) return;
       if (itemsToSubmit.length === 0) return alert("⚠️ 您尚未輸入任何盤點資料喔！");
       
-      if (hasEmpty) {
-        if (!confirm("⚠️ 有部分藥品未填寫數量，這些項目將不會被銷案（保留為待盤點）。確定要送出嗎？")) return;
+      if (itemsToSubmit.length < currentTasks.length) {
+        if (!confirm("⚠️ 有部分藥品未填寫，這些項目將保留為「待盤點」。確定要送出嗎？")) return;
       }
 
       const btn = document.getElementById('submit-btn');
@@ -168,7 +206,7 @@
       } catch(e) { 
         alert("❌ 上傳失敗，請檢查網路連線！"); 
       } finally {
-        btn.innerText = "✅ 確認送出結果"; 
+        btn.innerText = "✅ 確認上傳結果"; 
         btn.disabled = false;
       }
     }
@@ -177,7 +215,7 @@
     async function loadRecentRecords() {
       const div = document.getElementById('recent-list');
       try {
-        const res = await fetch(GAS_URL + "?action=getRecentRecords");
+        const res = await fetch(getNoCacheUrl("getRecentRecords"));
         const records = await res.json();
         
         if (records.length === 0) {
