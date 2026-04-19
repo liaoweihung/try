@@ -94,7 +94,8 @@
       
       // 🌟【跨區通用規則】
       // 這是您在 Excel 的 F 欄 (第二儲位) 手動建立的跨區標準名稱，擁有最高優先權
-      if (cabName === "門地下一層") return ["門地下一層"];
+      if (cabName === "門地下一") return ["門診區地下一層"];
+      if (cabName === "住地下一") return ["住院藥局(地下一層)"];
 
       // 🌟【依大區各自表述】
       switch (mainArea) {
