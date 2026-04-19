@@ -89,7 +89,6 @@
 
   window.onload = async function() {
     try {
-      // 加上時間戳記避免瀏覽器快取舊資料
       const res = await fetch(GAS_URL + "?action=getAuditReport&t=" + new Date().getTime());
       const data = await res.json();
       
@@ -102,10 +101,9 @@
     }
   };
 
-  // 1. 從任務清單中取出所有不重複的日期
   function populateDateDropdown() {
     const select = document.getElementById('date-select');
-    const dates = [...new Set(rawTasks.map(t => t[0]))].sort().reverse(); // 最新日期排前面
+    const dates = [...new Set(rawTasks.map(t => t[0]))].sort().reverse(); 
     
     if (dates.length === 0) {
       select.innerHTML = '<option disabled selected>目前尚無任何派案紀錄</option>';
@@ -118,13 +116,18 @@
     });
   }
 
-// 2. 渲染選定日期的報表 (已修復 Invalid Date 問題)
+  // 💡 建立「超級防呆比對器」：過濾掉所有空白、橫線、斜線，並統一轉大寫
+  function safeMatch(str1, str2) {
+    const clean1 = String(str1 || "").replace(/[\s\-\/\_]/g, "").toUpperCase();
+    const clean2 = String(str2 || "").replace(/[\s\-\/\_]/g, "").toUpperCase();
+    return clean1 === clean2;
+  }
+
   function renderReport() {
     const selectedDate = document.getElementById('date-select').value;
     const container = document.getElementById('report-container');
     const tbody = document.getElementById('table-body');
     
-    // 篩選該日期的所有任務
     const dayTasks = rawTasks.filter(t => t[0] === selectedDate);
     let completedCount = 0;
     
@@ -136,11 +139,11 @@
       const tLoc = String(task[3]).trim();
       const tStatus = String(task[5]).trim();
       
-      // 🎯 核心比對邏輯：去「抽盤紀錄」尋找 (任務日+代碼+儲位) 完全相符的最新一筆紀錄
+      // 🎯 核心升級：使用 safeMatch 進行無死角比對 (日期 + 代碼 + 儲位)
       const matchRecord = rawRecords.slice().reverse().find(r => 
-        String(r[2]).trim() === selectedDate && 
-        String(r[3]).trim() === tCode && 
-        String(r[5]).trim() === tLoc
+        safeMatch(r[2], selectedDate) && 
+        safeMatch(r[3], tCode) && 
+        safeMatch(r[5], tLoc)
       );
 
       const isDone = (tStatus === "已盤點" || matchRecord);
@@ -153,8 +156,6 @@
       // 若有紀錄則顯示盤點數值，否則顯示橫槓
       const qty = matchRecord ? `<span class="qty-text">${matchRecord[6]}</span>` : `<span style="color:#cbd5e1; text-align:center; display:block;">-</span>`;
       const expiry = (matchRecord && matchRecord[7]) ? `<span class="expiry-text">${matchRecord[7]}</span>` : `<span style="color:#cbd5e1;">-</span>`;
-      
-      // 💡 修正點：拿掉 new Date().toLocaleTimeString()，直接顯示 matchRecord[0]
       const userInfo = matchRecord 
         ? `<div class="user-info"><strong>${matchRecord[1]}</strong><br>${matchRecord[0]}</div>` 
         : `<span style="color:#cbd5e1;">-</span>`;
@@ -174,7 +175,6 @@
       `;
     });
 
-    // 3. 更新進度條
     const total = dayTasks.length;
     const percent = total === 0 ? 0 : Math.round((completedCount / total) * 100);
     
