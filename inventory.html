@@ -139,7 +139,23 @@
 
 
         // 📦 藥庫、中山、化療等區域 (若無特殊需求直接回傳全部)
+        // 📦 藥庫專屬規則
         case "藥庫":
+          // 規則 1：英文開頭 + (可選的左右) + 數字 (例如 A右1-2 -> A右1, E4-3 -> E4, D2箱1 -> D2)
+          const rackMatch = cabName.match(/^[a-zA-Z]+[左右]?\d+/);
+          if (rackMatch) {
+            return [rackMatch[0]]; 
+          }
+
+          // 規則 2：含有橫槓「-」的，直接切斷保留前半部 (例如 管1-3 -> 管1, 冰3-4 -> 冰3)
+          if (cabName.includes("-")) {
+            return [cabName.split("-")[0]];
+          }
+
+          // 規則 3：其餘沒有特殊符號的獨立區 (例如 放射科, 防爆, 腹膜透析, 化2)
+          return [cabName];
+
+          
         case "中山":
         case "化療":
           return ["全部品項"];
