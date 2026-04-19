@@ -113,10 +113,16 @@
         
         // 🏥 門診專屬規則
         case "門診":
-          if (cabName.startsWith("調3")) return ["調劑檯3"];
+          if (cabName.startsWith("調3")) return ["調3"];
           if (cabName.startsWith("ADC")) return ["ADC藥櫃"];
           if (cabName.startsWith("水")) return ["水藥台"];
           if (cabName.startsWith("專案")) return ["專案櫃"];
+          if (cabName.startsWith("冰門")) return ["冰門"];
+          if (cabName.startsWith("調2")) return ["調2特有"];
+          if (cabName.startsWith("審")) return ["審核區"];
+          if (cabName.startsWith("注射室")) return ["注射室"];
+          if (cabName.startsWith("管四庫")) return ["管四庫"];
+          if (cabName.startsWith("點滴")) return ["點滴區"];
           if (cabName.startsWith("磨粉區")) return ["磨粉區"];
           if (cabName.startsWith("藥包機")) return ["藥包機"];
           return ["調劑檯1", "調劑檯2", "調劑檯4"];
