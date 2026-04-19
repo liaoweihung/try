@@ -216,7 +216,7 @@ window.onload = async function() {
 
           rawCabinets.forEach(cab => {
             // 🚨 這裡就是呼叫分類引擎的地方！現在已經確實把 unit 傳進去了
-            const subAreas = classifySubAreas(cab, mainArea, unit);
+            const subAreas = classifySubAreas(cab, mainArea, "CAP");
             
             subAreas.forEach(sub => {
               if (!db[mainArea][sub]) db[mainArea][sub] = {};
