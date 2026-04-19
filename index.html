@@ -23,18 +23,16 @@
     }
 
     h1 { text-align: center; color: #2c3e50; margin-bottom: 5px; }
-    p.subtitle { text-align: center; color: #7f8c8d; margin-bottom: 20px; }
+    p.subtitle { text-align: center; color: #7f8c8d; margin-bottom: 30px; }
 
     .section-title {
-      color: #475569;
-      font-size: 16px;
-      margin-top: 30px;
-      margin-bottom: 15px;
+      color: #64748b;
+      font-size: 15px;
+      margin-top: 25px;
+      margin-bottom: 12px;
       padding-bottom: 5px;
-      border-bottom: 2px solid #cbd5e1;
+      border-bottom: 1px solid #cbd5e1;
       font-weight: bold;
-      display: flex;
-      align-items: center;
     }
 
     /* 目錄卡片樣式 */
@@ -42,7 +40,7 @@
       display: flex;
       align-items: center;
       background: #fff;
-      padding: 15px;
+      padding: 16px;
       border-radius: 12px;
       text-decoration: none;
       margin-bottom: 15px;
@@ -52,20 +50,22 @@
     }
 
     .menu-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.08);
       border-color: #3498db;
     }
 
-    /* 不同區塊的卡片顏色提示 */
-    .card-select { border-left: 5px solid #3498db; }
-    .card-check { border-left: 5px solid #27ae60; }
+    /* 顏色邊條設計 */
+    .card-assign { border-left: 5px solid #3498db; }
+    .card-input { border-left: 5px solid #27ae60; }
     .card-audit { border-left: 5px solid #f39c12; }
+    .card-report { border-left: 5px solid #9b59b6; }
+    .card-inventory { border-left: 5px solid #e74c3c; }
     .card-maintain { border-left: 5px solid #64748b; background: #f8fafc; }
 
     .icon {
-      font-size: 30px;
-      margin-right: 20px;
+      font-size: 28px;
+      margin-right: 18px;
       width: 40px;
       text-align: center;
     }
@@ -75,15 +75,15 @@
     }
 
     .content h2 {
-      margin: 0 0 5px 0;
-      font-size: 18px;
-      color: #2c3e50;
+      margin: 0 0 4px 0;
+      font-size: 17px;
+      color: #1e293b;
     }
 
     .content p {
       margin: 0;
       font-size: 13px;
-      color: #7f8c8d;
+      color: #64748b;
       line-height: 1.4;
     }
     
@@ -93,8 +93,9 @@
       color: #ef4444;
       padding: 2px 6px;
       border-radius: 4px;
-      margin-left: 5px;
+      margin-left: 6px;
       vertical-align: middle;
+      font-weight: normal;
     }
   </style>
 </head>
@@ -102,54 +103,60 @@
 
   <div class="container">
     <h1>🏥 藥局盤點整合系統</h1>
-    <p class="subtitle">醫院藥劑科專用管理平台</p>
+    <p class="subtitle">醫院藥劑科專業管理平台</p>
 
-    <div class="section-title">🔍 日常抽盤作業 (Cycle Count)</div>
-
-    <a href="select.html" class="menu-card card-select">
+    <a href="select.html" class="menu-card card-assign">
       <div class="icon">📋</div>
       <div class="content">
-        <h2>1. 主管派案中心</h2>
+        <h2>1. 主管抽盤派案中心</h2>
         <p>設定抽盤日期，指派各區域特定藥品任務。</p>
       </div>
     </a>
 
-    <a href="check.html" class="menu-card card-check">
+    <a href="check.html" class="menu-card card-input">
       <div class="icon">📱</div>
       <div class="content">
         <h2>2. 同仁抽盤輸入</h2>
-        <p>領取任務、輸入實盤數量與最舊效期。</p>
+        <p>領取任務、輸入實盤數量與最舊效期紀錄。</p>
       </div>
     </a>
 
     <a href="audit.html" class="menu-card card-audit">
       <div class="icon">📊</div>
       <div class="content">
-        <h2>3. 抽盤審核報表</h2>
-        <p>追蹤派案完成進度，查看人員盤點詳細紀錄。</p>
+        <h2>3. 抽盤進度審核報表</h2>
+        <p>即時追蹤抽盤進度，比對人員盤點詳細數據。</p>
       </div>
     </a>
 
-    <div class="section-title">⚙️ 系統管理與維護</div>
+    <a href="report.html" class="menu-card card-report">
+      <div class="icon">📈</div>
+      <div class="content">
+        <h2>4. 大盤點進度監控</h2>
+        <p>查看全院大盤點即時完成率與藥品分佈狀況。</p>
+      </div>
+    </a>
+
+    <a href="inventory.html" class="menu-card card-inventory">
+      <div class="icon">📦</div>
+      <div class="content">
+        <h2>5. 藥局大盤點系統</h2>
+        <p>全院大盤點專用介面，支援離線暫存與批次上傳。</p>
+      </div>
+    </a>
+
+    <div class="section-title">⚙️ 系統維護</div>
 
     <a href="maintain.html" class="menu-card card-maintain">
       <div class="icon">🛠️</div>
       <div class="content">
-        <h2>4. 藥品主檔維護 <span class="badge-lock">需密碼</span></h2>
-        <p>新增、編輯或刪除藥品基本資料、儲位與大區。</p>
+        <h2>6. 藥品主檔維護 <span class="badge-lock">需驗證</span></h2>
+        <p>管理藥品基本資料、儲位與大區分類設定。</p>
       </div>
     </a>
 
-    <a href="report.html" class="menu-card card-audit" style="border-left-color: #94a3b8;">
-      <div class="icon">📈</div>
-      <div class="content">
-        <h2>5. 大盤點進度監控</h2>
-        <p>查看全院藥品大盤點的即時完成率與分佈。</p>
-      </div>
-    </a>
-
-    <div style="text-align: center; margin-top: 40px; color: #cbd5e1; font-size: 12px;">
-      © 2026 藥劑科盤點系統服務 v2.0
+    <div style="text-align: center; margin-top: 35px; color: #94a3b8; font-size: 11px; letter-spacing: 1px;">
+      SYSTEM VERSION 2.1 • 藥劑科資訊組維護
     </div>
   </div>
 
