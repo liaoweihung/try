@@ -116,11 +116,22 @@
     });
   }
 
-  // 💡 建立「超級防呆比對器」：過濾掉所有空白、橫線、斜線，並統一轉大寫
+  // 💡 文字防呆器：過濾符號與大小寫
   function safeMatch(str1, str2) {
     const clean1 = String(str1 || "").replace(/[\s\-\/\_]/g, "").toUpperCase();
     const clean2 = String(str2 || "").replace(/[\s\-\/\_]/g, "").toUpperCase();
     return clean1 === clean2;
+  }
+
+  // 💡 日期防呆器：強制轉成標準時間再比對，完美解決 04 變 4 的問題
+  function matchDate(d1, d2) {
+    const date1 = new Date(d1);
+    const date2 = new Date(d2);
+    if (!isNaN(date1) && !isNaN(date2)) {
+       return date1.toDateString() === date2.toDateString();
+    }
+    // 如果不是合法日期，才退回去用文字比對
+    return safeMatch(d1, d2);
   }
 
   function renderReport() {
@@ -139,9 +150,9 @@
       const tLoc = String(task[3]).trim();
       const tStatus = String(task[5]).trim();
       
-      // 🎯 核心升級：使用 safeMatch 進行無死角比對 (日期 + 代碼 + 儲位)
+      // 🎯 核心升級：日期交給 matchDate 處理，代碼跟儲位交給 safeMatch
       const matchRecord = rawRecords.slice().reverse().find(r => 
-        safeMatch(r[2], selectedDate) && 
+        matchDate(r[2], selectedDate) && 
         safeMatch(r[3], tCode) && 
         safeMatch(r[5], tLoc)
       );
