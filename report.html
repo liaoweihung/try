@@ -3,201 +3,269 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>藥局盤點即時報表</title>
+  <title>大盤點 - 分區結果報表</title>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; margin: 0; padding: 15px; color: #333; }
-    .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    h2 { text-align: center; color: #2c3e50; margin-top: 10px; }
-    label { font-weight: bold; margin-bottom: 5px; display: block; color: #7f8c8d; }
-    select, input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
-    .btn-refresh { background-color: #3498db; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; margin-bottom: 15px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-    th { background-color: #f8f9fa; color: #2c3e50; font-weight: bold; border: 1px solid #eee; padding: 10px; text-align: left; position: sticky; top: 0; }
-    td { border: 1px solid #eee; padding: 10px; font-size: 14px; }
-    .qty-cell { text-align: center; font-weight: bold; color: #e67e22; font-size: 16px; }
-    .drug-info { font-size: 12px; color: #7f8c8d; }
-    .hidden { display: none; }
-    .summary-badge { display: inline-block; padding: 4px 8px; background: #e8f4fd; color: #2980b9; border-radius: 4px; font-size: 12px; margin-bottom: 10px; }
-    /* 讓備註欄位可以自動換行，不會把表格撐爆 */
-    .note-cell {
-      color: #e74c3c;
-      font-size: 13px;
-      font-weight: bold;
-      line-height: 1.4;
-      word-break: break-all;
-      white-space: pre-wrap;
-      min-width: 150px;
-    }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; color: #333; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .controls { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; gap: 15px; align-items: center; }
+    select, button { padding: 8px 12px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; }
+    button.btn-export { background-color: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; }
+    button.btn-export:hover { background-color: #218838; }
+    table { width: 100%; background: white; border-collapse: collapse; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+    th { background-color: #007bff; color: white; position: sticky; top: 0; }
+    tr:nth-child(even) { background-color: #f9f9f9; }
+    .diff-minus { color: #dc3545; font-weight: bold; } /* 盤虧：紅色 */
+    .diff-plus { color: #007bff; font-weight: bold; }  /* 盤盈：藍色 */
+    .diff-zero { color: #28a745; }                     /* 帳物相符：綠色 */
+    .loading { font-size: 18px; color: #666; font-style: italic; }
   </style>
 </head>
 <body>
 
-  <h2>📊 盤點彙整報表</h2>
+  <div class="header">
+    <h2>📊 大盤點分區結果報表</h2>
+    <button class="btn-export" onclick="exportToCSV()">📥 匯出當前表格 (CSV)</button>
+  </div>
 
-  <div class="card">
-    <button class="btn-refresh" onclick="fetchData()">🔄 更新雲端數據</button>
-
-    <label>1. 選擇報表類型：</label>
-    <select id="report-type" onchange="toggleFilters()">
-      <option value="single">個別小區報表 (大區-小區)</option>
-      <option value="main1">大區 1 總合 (門診全區)</option>
-      <option value="main2">大區 2 總合 (中山全區)</option>
-      <option value="total">全院總數總合 (Total)</option>
+  <div class="controls">
+    <label>1. 選擇大區：</label>
+    <select id="main-area" onchange="updateSubAreaSelect()">
+      <option value="" disabled selected>⏳ 資料載入中...</option>
     </select>
 
-    <!-- 個別小區專用的下拉選單 -->
-    <div id="filter-group">
-      <label>2. 選擇具體位置：</label>
-      <select id="sub-area-select" onchange="renderTable()"></select>
-    </div>
-
-    <label>3. 搜尋藥品：</label>
-    <input type="text" id="search-box" placeholder="輸入藥名或代碼..." oninput="renderTable()">
+    <label>2. 選擇小區：</label>
+    <select id="sub-area" onchange="renderTable()">
+      <option value="" disabled selected>請先選擇大區...</option>
+    </select>
+    
+    <label><input type="checkbox" id="show-diff-only" onchange="renderTable()"> 🔍 只顯示有差異品項</label>
   </div>
 
-  <div class="card">
-    <div id="status-tag" class="summary-badge">準備就緒</div>
-    <div id="report-container">
-      <p style="text-align:center; color:#999;">請點擊「更新數據」開始</p>
-    </div>
-  </div>
+  <div id="status-msg" class="loading" style="margin-top:15px;">正在連線到資料庫...</div>
+
+  <table id="report-table" style="display:none; margin-top:20px;">
+    <thead>
+      <tr>
+        <th>院內碼</th>
+        <th>商品名</th>
+        <th>單位</th>
+        <th>實際儲位</th>
+        <th>系統庫存</th>
+        <th>實盤數量</th>
+        <th>差異</th>
+        <th>盤點人員</th>
+        <th>盤點時間</th>
+      </tr>
+    </thead>
+    <tbody id="report-body">
+      </tbody>
+  </table>
 
   <script>
-    // ⚠️ 請填入您的 GAS 部署網址
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
+    // 🚨 替換成您剛剛重新部署的 GAS 網址
+    const GAS_URL = "在此貼上您的_GAS_網址"; 
     
-    let rawData = []; // 存儲從 GAS 抓回來的總表 JSON
+    let allRecords = []; // 存放所有盤點總表的資料
 
- async function fetchData() {
-      const btn = document.querySelector('.btn-refresh');
-      btn.innerText = "正在連線中...";
-      btn.disabled = true;
-      document.getElementById('status-tag').innerText = "正在抓取最新資料...";
+    // 💡 欄位索引對照表 (請依照您的「盤點總表」Excel 欄位順序進行修改！)
+    // 假設 0=院內碼, 1=商品名, 2=單位, 3=儲位, 4=大區, 5=系統量, 6=實盤量, 7=差異, 8=人員, 9=時間
+    const COL = {
+      CODE: 0,
+      NAME: 1,
+      UNIT: 2,
+      CAB: 3,
+      MAIN_AREA: 4,
+      SYS_QTY: 5,
+      INV_QTY: 6,
+      DIFF: 7,
+      USER: 8,
+      TIME: 9
+    };
 
-      try {
-        const response = await fetch(GAS_URL);
-        rawData = await response.json();
-        
-        const subSelect = document.getElementById('sub-area-select');
-        subSelect.innerHTML = "";
+    // 🌟 核心分類引擎 (完全移植您修正好的最終版本)
+    function classifySubAreas(cabName, mainArea, unit) {
+      if (mainArea === "中山") {
+        const u = String(unit || "").toUpperCase();
+        if (u === "CAP" || u === "TABL") return ["口服"];
+        if (u === "TUBE" || u === "BTL" || u === "SACH") return ["外用"];
+        if (u === "AMPU") return ["注射"];
+        if (cabName === "未設儲位") return ["未設儲位"];
+        return ["其他(中山)"];
+      }
+      
+      if (cabName === "未設儲位") return ["未設儲位"];
+      if (cabName === "門地下一") return ["門診區地下一層"];
+      if (cabName === "住地下一") return ["住院藥局(地下一層)"];
 
-        // 💡 關鍵修正：檢查有沒有抓到資料
-        if (rawData && rawData.length > 0) {
-          // 定義不需要顯示在下拉選單的欄位 (請務必與您的 Google Sheets 標題完全一致)
-          const excludeKeys = ["院內碼", "藥品名稱", "總計加總"];
-          
-          // 從第一筆資料抓取所有的欄位名稱
-          const allKeys = Object.keys(rawData[0]);
-          const areas = allKeys.filter(k => !excludeKeys.includes(k));
-          
-          if (areas.length > 0) {
-            areas.forEach(area => {
-              const opt = document.createElement('option');
-              opt.value = area;
-              opt.innerText = area;
-              subSelect.appendChild(opt);
-            });
-            document.getElementById('status-tag').innerText = "數據已同步 (共 " + rawData.length + " 筆藥品)";
-          } else {
-            document.getElementById('status-tag').innerText = "⚠️ 找不到可顯示的小區欄位";
-          }
-        } else {
-          document.getElementById('status-tag').innerText = "❌ 總表目前沒有資料，請先在 Sheets 設定總表";
-        }
+      switch (mainArea) {
+        case "門診":
+          if (cabName.startsWith("門冰") || cabName.startsWith("冰")) return ["門診冰箱"];
+          if (cabName.startsWith("管")) return ["管制藥品櫃"]; 
+          if (cabName.startsWith("調3")) return ["調劑檯3"];
+          if (cabName.startsWith("ADC")) return ["ADC藥櫃"];
+          if (cabName.startsWith("水")) return ["水藥台"];
+          if (cabName.startsWith("專案")) return ["專案櫃"];
+          if (cabName.startsWith("磨粉區")) return ["磨粉區"];
+          if (cabName.startsWith("藥包機")) return ["藥包機"];
+          return ["調劑檯1", "調劑檯2", "調劑檯4"];
 
-        renderTable();
-      } catch (err) {
-        console.error(err);
-        document.getElementById('status-tag').innerText = "❌ 抓取失敗，請檢查 GAS 網址與網路";
-      } finally {
-        btn.innerText = "🔄 更新雲端數據";
-        btn.disabled = false;
+        case "急診":
+          if (cabName === "B1冷凍" || cabName.startsWith("B1冷凍")) return ["B1冷凍"];
+          if (cabName.startsWith("ER_")) return ["ER_"];
+          const enMatch = cabName.match(/^[a-zA-Z]+/);
+          if (enMatch) return [enMatch[0].toUpperCase()]; 
+          if (/^[\u4e00-\u9fa5]/.test(cabName)) return [cabName.replace(/\d$/, '')];
+          return ["全部品項"];
+
+        case "藥庫":
+          if (cabName.includes("心/內")) return ["E3"];
+          const rackMatch = cabName.match(/^[a-zA-Z]+[左右]?\d+/);
+          if (rackMatch) return [rackMatch[0]]; 
+          if (cabName.includes("-")) return [cabName.split("-")[0]];
+          return [cabName];
+
+        case "化療":
+          return ["全部品項"];
+
+        default:
+          return ["全部品項"];
       }
     }
 
-    function toggleFilters() {
-      const type = document.getElementById('report-type').value;
-      const group = document.getElementById('filter-group');
-      group.className = (type === 'single') ? '' : 'hidden';
-      renderTable();
-    }
-function renderTable() {
-      if (rawData.length === 0) return;
-
-      const type = document.getElementById('report-type').value;
-      const subAreaFilter = document.getElementById('sub-area-select').value;
-      const keyword = document.getElementById('search-box').value.toLowerCase();
-      const container = document.getElementById('report-container');
-
-      let html = `
-        <table>
-          <tr>
-            <th style="width:10%">大區</th>
-            <th style="width:15%">小區</th>
-            <th style="width:15%">代碼</th>
-            <th>藥品名稱 (中/英)</th>
-            <th style="width:10%; text-align:center;">數量</th>
-            <th style="width:20%">備註</th> <!-- 💡 新增備註標題 -->
-          </tr>`;
-      
-      let displayCount = 0;
-
-      rawData.forEach(item => {
-        // 1. 抓取代碼與名稱
-        const drugCode = item["院內碼"] || item["藥品代碼"] || "無代碼";
-        const cName = item["中文商品名"] || "";
-        const eName = item["英文商品名"] || "";
-        const drugName = (cName && eName) ? `${cName} (${eName})` : (cName || eName || "未知藥名");
+    // 網頁載入時，立刻去抓盤點總表資料
+    window.onload = async function() {
+      try {
+        const res = await fetch(GAS_URL + "?action=getReport");
+        const data = await res.json();
         
-        // 2. 搜尋過濾
-        const matchSearch = drugName.toLowerCase().includes(keyword) || drugCode.toLowerCase().includes(keyword);
-        if (!matchSearch) return;
-
-        let grandArea = "", subArea = "", qty = 0;
-        let note = item["備註"] || ""; // 💡 抓取 JSON 裡的備註資料
-
-        // 3. 核心修改：直接根據報表類型，精準抓取「唯一」的欄位數字
-        if (type === 'total') {
-          grandArea = "全院"; 
-          subArea = "最終總數"; 
-          qty = item["加總-全院"]; 
-        } else if (type === 'main1') {
-          grandArea = "門診"; 
-          subArea = "全區加總"; 
-          qty = item["加總-門診"];
-        } else if (type === 'main2') {
-          grandArea = "中山"; 
-          subArea = "全區加總"; 
-          qty = item["加總-中山"];
-        } else if (type === 'single') {
-          if (!subAreaFilter) return; 
-          let parts = subAreaFilter.split('-');
-          grandArea = parts[0] || "其他"; 
-          subArea = parts[1] || "全部品項"; 
-          qty = item[subAreaFilter];
+        if (data.error) {
+          alert("錯誤：" + data.error);
+          return;
         }
 
-        // 4. 確保數量大於 0 才顯示
-        qty = parseFloat(qty);
-        if (!isNaN(qty) && qty > 0) {
-          displayCount++;
-          html += `
-            <tr>
-              <td><span class="summary-badge" style="margin:0">${grandArea}</span></td>
-              <td>${subArea}</td>
-              <td style="font-family: monospace; color:#7f8c8d;">${drugCode}</td>
-              <td><strong>${drugName}</strong></td>
-              <td class="qty-cell">${qty}</td>
-              <td class="note-cell">${note}</td> <!-- 💡 顯示備註內容 -->
-            </tr>
-          `;
+        allRecords = data;
+        
+        // 抓出所有不重複的大區
+        const mainAreas = [...new Set(allRecords.map(row => String(row[COL.MAIN_AREA]).trim()).filter(a => a))];
+        
+        const mainSelect = document.getElementById("main-area");
+        mainSelect.innerHTML = '<option value="" disabled selected>請選擇大區...</option>';
+        mainAreas.sort().forEach(area => {
+          mainSelect.innerHTML += `<option value="${area}">${area}</option>`;
+        });
+
+        document.getElementById("status-msg").style.display = "none";
+        document.getElementById("report-table").style.display = "table";
+
+      } catch(err) {
+        document.getElementById("status-msg").innerHTML = "❌ 資料載入失敗，請檢查網路或 GAS 網址。";
+      }
+    };
+
+    // 當大區改變，動態生成小區選單
+    function updateSubAreaSelect() {
+      const mainArea = document.getElementById("main-area").value;
+      const subSelect = document.getElementById("sub-area");
+      subSelect.innerHTML = '<option value="" disabled selected>請選擇小區...</option>';
+      
+      // 讓系統先掃過所有紀錄，看這個大區底下「實際上」存在哪些小區
+      let availableSubAreas = new Set();
+      allRecords.forEach(row => {
+        if (String(row[COL.MAIN_AREA]).trim() === mainArea) {
+          const cab = String(row[COL.CAB]).trim() || "未設儲位";
+          const unit = String(row[COL.UNIT]).trim();
+          
+          const subs = classifySubAreas(cab, mainArea, unit);
+          subs.forEach(s => availableSubAreas.add(s));
         }
       });
 
-      html += `</table>`;
-      container.innerHTML = displayCount > 0 ? html : "<p style='text-align:center; padding:20px; color:#999;'>📭 目前查無盤點數據</p>";
+      [...availableSubAreas].sort().forEach(sub => {
+        subSelect.innerHTML += `<option value="${sub}">${sub}</option>`;
+      });
+      
+      renderTable(); // 清空表格
     }
 
+    // 渲染報表
+    function renderTable() {
+      const mainArea = document.getElementById("main-area").value;
+      const subArea = document.getElementById("sub-area").value;
+      const showDiffOnly = document.getElementById("show-diff-only").checked;
+      const tbody = document.getElementById("report-body");
+      tbody.innerHTML = "";
+
+      if (!mainArea || !subArea) return;
+
+      allRecords.forEach(row => {
+        if (String(row[COL.MAIN_AREA]).trim() !== mainArea) return;
+        
+        const code = String(row[COL.CODE]).trim();
+        const name = String(row[COL.NAME]).trim();
+        const unit = String(row[COL.UNIT]).trim();
+        const cab = String(row[COL.CAB]).trim() || "未設儲位";
+        const sysQty = parseFloat(row[COL.SYS_QTY]) || 0;
+        const invQty = parseFloat(row[COL.INV_QTY]) || 0;
+        const diff = parseFloat(row[COL.DIFF]) || 0;
+        const user = String(row[COL.USER]).trim();
+        const time = String(row[COL.TIME]).trim();
+
+        // 用引擎判斷這筆資料屬不屬於選擇的小區
+        const subs = classifySubAreas(cab, mainArea, unit);
+        if (!subs.includes(subArea)) return;
+
+        // 檢查「只顯示差異」的條件
+        if (showDiffOnly && diff === 0) return;
+
+        // 決定差異數字的顏色
+        let diffClass = "diff-zero";
+        let diffText = "0";
+        if (diff < 0) { diffClass = "diff-minus"; diffText = diff; }
+        if (diff > 0) { diffClass = "diff-plus"; diffText = "+" + diff; }
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${code}</td>
+            <td>${name}</td>
+            <td>${unit}</td>
+            <td>${cab}</td>
+            <td>${sysQty}</td>
+            <td>${invQty}</td>
+            <td class="${diffClass}">${diffText}</td>
+            <td>${user}</td>
+            <td>${time}</td>
+          </tr>
+        `;
+      });
+    }
+
+    // 匯出 CSV 檔案
+    function exportToCSV() {
+      const table = document.getElementById("report-table");
+      let csvContent = "\uFEFF"; // 加入 BOM 避免 Excel 中文亂碼
+      
+      for (let i = 0; i < table.rows.length; i++) {
+        let rowData = [];
+        for (let j = 0; j < table.rows[i].cells.length; j++) {
+          let cellText = table.rows[i].cells[j].innerText.replace(/"/g, '""');
+          rowData.push('"' + cellText + '"');
+        }
+        csvContent += rowData.join(",") + "\n";
+      }
+
+      const mainArea = document.getElementById("main-area").value || "未選大區";
+      const subArea = document.getElementById("sub-area").value || "未選小區";
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `盤點報表_${mainArea}_${subArea}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   </script>
 </body>
 </html>
