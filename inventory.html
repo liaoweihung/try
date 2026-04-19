@@ -139,6 +139,15 @@
 
 
         // 📦 藥庫、中山、化療等區域 (若無特殊需求直接回傳全部)
+        // 🏥 中山區：改用「庫存單位」來分小區
+        case "中山":
+          const u = String(unit || "").toUpperCase();
+          if (u === "CAP" || u === "TABL") return ["口服"];
+          if (u === "TUBE" || u === "BTL" || u === "SACH") return ["外用"];
+          if (u === "AMPU") return ["注射"];
+          return ["其他(中山)"];
+
+          
         // 📦 藥庫專屬規則
              case "藥庫":
         // 🚨 特例優先攔截：處理 E3-1心/內
@@ -159,9 +168,7 @@
 
           // 規則 3：其餘沒有特殊符號的獨立區 (例如 放射科, 防爆, 腹膜透析, 化2)
           return [cabName];
-
           
-        case "中山":
         case "化療":
           return ["全部品項"];
 
