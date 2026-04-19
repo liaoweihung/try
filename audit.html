@@ -3,188 +3,195 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>主管審核報表 - 藥局抽盤系統</title>
+  <title>主管派案 - 抽盤系統</title>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; padding: 15px; color: #333; margin: 0; }
-    h2 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
-    .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; }
-    label { font-weight: bold; color: #2980b9; display: block; margin-bottom: 10px; }
-    select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; background: #fff; }
+    body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #f8fafc; padding: 20px; color: #334155; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
     
-    .progress-item { margin-bottom: 15px; }
-    .progress-info { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; font-weight: bold; }
-    .progress-bg { background: #eee; height: 10px; border-radius: 5px; overflow: hidden; }
-    .progress-fill { background: #3498db; height: 100%; width: 0%; transition: width 0.6s ease; }
+    label { font-weight: bold; color: #3b82f6; display: block; margin-bottom: 8px; font-size: 14px; }
+    input, select { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 16px; box-sizing: border-box; margin-bottom: 20px; }
+    
+    /* 搜尋結果清單 */
+    .search-result-box { border: 1px solid #e2e8f0; border-radius: 10px; max-height: 300px; overflow-y: auto; background: #fff; }
+    .drug-row { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+    .drug-row:hover { background: #f0f9ff; }
+    .drug-info { line-height: 1.4; }
+    .drug-name { font-weight: bold; font-size: 16px; color: #1e293b; }
+    .drug-meta { font-size: 13px; color: #64748b; }
+    .btn-add { background: #3b82f6; color: white; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    
+    /* 待派案購物車 */
+    .cart-section { background: #eff6ff; border: 2px solid #dbeafe; padding: 15px; border-radius: 12px; }
+    .cart-item { display: inline-flex; align-items: center; background: #3b82f6; color: white; padding: 5px 12px; border-radius: 20px; margin: 5px; font-size: 14px; }
+    .cart-item span { margin-left: 8px; cursor: pointer; background: rgba(0,0,0,0.2); border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
 
-    .table-container { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 600px; }
-    th { background: #f8f9fa; padding: 12px; border: 1px solid #eee; text-align: left; font-size: 13px; color: #7f8c8d; }
-    td { padding: 12px; border: 1px solid #eee; font-size: 14px; vertical-align: top; }
-    .cabinet-tag { background: #e8f4fd; color: #2980b9; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-    .status-done { color: #27ae60; font-weight: bold; }
-    .status-wait { color: #e67e22; font-weight: bold; }
+    .btn-publish { background: #22c55e; color: white; border: none; width: 100%; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; box-shadow: 0 4px 10px rgba(34, 197, 94, 0.3); }
+    .btn-publish:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; }
+
+    .footer-note { margin-top: 40px; padding: 20px; background: #f1f5f9; border-radius: 10px; border-top: 4px solid #94a3b8; font-size: 14px; color: #475569; }
   </style>
 </head>
 <body>
 
-  <h2>📊 抽盤結果審核報表</h2>
-
+<div class="container">
   <div class="card">
-    <label>📅 請選擇審核日期 (僅顯示最近 5 筆任務)：</label>
-    <select id="date-select" onchange="loadAuditData()">
-      <option value="">⏳ 載入日期中...</option>
+    <h2 style="margin-top:0; color:#1e293b; text-align:center;">🎯 抽盤任務指派</h2>
+    
+    <label>📅 任務執行日期</label>
+    <input type="date" id="task-date">
+
+    <label>🔍 搜尋藥品 (支援代碼、名稱、大區模糊比對)</label>
+    <input type="text" id="search-input" placeholder="請輸入部分文字..." oninput="filterDrugs()">
+
+    <label>大區過濾</label>
+    <select id="area-filter" onchange="filterDrugs()">
+      <option value="">-- 全部大區 --</option>
     </select>
-  </div>
 
-  <div class="card">
-    <label>📈 分區完成率 (%)</label>
-    <div id="progress-container">
-      <div style="text-align:center; color:#999; padding:10px;">請先選擇日期</div>
+    <div class="search-result-box" id="result-list">
+      <p style="text-align:center; padding:20px; color:#94a3b8;">載入主檔資料中，請稍候...</p>
     </div>
   </div>
 
-  <div class="card table-container">
-    <label>📋 盤點明細清單</label>
-    <table>
-      <thead>
-        <tr>
-          <th>位置 (大區-小區-櫃位)</th>
-          <th>品名 (代碼)</th>
-          <th>實盤數量</th>
-          <th>最舊效期</th>
-          <th>輸入時間 / 盤點人</th>
-          <th>狀態</th>
-        </tr>
-      </thead>
-      <tbody id="result-body">
-        <tr><td colspan="6" style="text-align:center; color:#999;">尚未載入資料</td></tr>
-      </tbody>
-    </table>
+  <div class="card cart-section">
+    <label>🛒 待派案清單 (<span id="count">0</span> 項)</label>
+    <div id="cart-content"></div>
+    <button class="btn-publish" id="publish-btn" onclick="submitTasks()" disabled>發布抽盤任務</button>
   </div>
 
-  <script>
-    // ⚠️ 貼上您的 GAS 部署網址 (務必是 /exec 結尾)
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
+  <div class="footer-note">
+    <strong>📋 派案操作說明：</strong><br><br>
+    1. <b>搜尋：</b> 輸入部分藥名或院內碼，系統會即時篩選。若有同成分不同規格，請從清單中點選正確品項。<br>
+    2. <b>完全一致：</b> 若搜尋文字與代碼完全相同，該品項會排在清單第一位。<br>
+    3. <b>加入：</b> 點擊「+ 指派」可將藥品放入下方清單。可同時跨區挑選多項藥品一次發布。<br>
+    4. <b>發布：</b> 設定好執行日期後按「發布」，任務將會同步到同仁的手機端。
+  </div>
+</div>
 
-    function getNoCacheUrl(baseAction) {
-      return GAS_URL + "?action=" + baseAction + "&t=" + new Date().getTime();
-    }
+<script>
+  // 🚨 請替換成您的 GAS 網址
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec"; 
+  let allDrugs = [];
+  let cart = new Map();
 
-    window.onload = function() {
-      fetchDates();
-    };
-
-    async function fetchDates() {
-      const select = document.getElementById('date-select');
-      try {
-        const res = await fetch(getNoCacheUrl("getAuditDates"));
-        const dates = await res.json();
-        
-        if (dates.length === 0) {
-          select.innerHTML = '<option value="">目前尚無抽盤任務</option>';
-          return;
-        }
-
-        select.innerHTML = ''; 
-        dates.forEach((d, index) => {
-          const opt = document.createElement('option');
-          opt.value = d;
-          opt.textContent = d + (index === 0 ? " (最新)" : "");
-          select.appendChild(opt);
-        });
-        
-        loadAuditData(); 
-
-      } catch (e) { select.innerHTML = '<option value="">❌ 無法抓取日期</option>'; }
-    }
-
-    async function loadAuditData() {
-      const date = document.getElementById('date-select').value;
-      const progressContainer = document.getElementById('progress-container');
-      const tableBody = document.getElementById('result-body');
+  window.onload = async function() {
+    document.getElementById('task-date').valueAsDate = new Date();
+    try {
+      const res = await fetch(GAS_URL + "?action=getDrugs");
+      const data = await res.json();
       
-      if (!date) return;
+      // 🎯 關鍵校準：對齊 9 欄位 (代碼 0, 商品名 1, 儲位 4, 大區 7)
+      allDrugs = data.map(row => ({
+        code: String(row[0]).trim(),
+        name: String(row[1]).trim(),
+        loc: String(row[4]).trim(), 
+        area: String(row[7]).trim() 
+      })).filter(d => d.code && d.area); // 過濾無效資料
 
-      progressContainer.innerHTML = "正在計算完成率...";
-      tableBody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>正在比對雲端資料庫...</td></tr>";
+      // 動態填入大區選項
+      const areas = [...new Set(allDrugs.map(d => d.area))].sort();
+      const select = document.getElementById('area-filter');
+      areas.forEach(a => {
+        select.innerHTML += `<option value="${a}">${a}</option>`;
+      });
 
-      try {
-        const [tasks, records, drugs] = await Promise.all([
-          fetch(getNoCacheUrl("getAuditTasks") + "&date=" + date).then(r => r.json()),
-          fetch(getNoCacheUrl("getAuditRecords") + "&date=" + date).then(r => r.json()),
-          fetch(getNoCacheUrl("getDrugs")).then(r => r.json())
-        ]);
+      filterDrugs();
+    } catch(e) {
+      document.getElementById('result-list').innerHTML = `<p style="text-align:center; color:red;">載入失敗，請檢查網路</p>`;
+    }
+  };
 
-        renderProgress(tasks);
-        renderTable(tasks, records, drugs);
+  function filterDrugs() {
+    const query = document.getElementById('search-input').value.trim().toUpperCase();
+    const area = document.getElementById('area-filter').value;
+    const listDiv = document.getElementById('result-list');
+    
+    // 模糊搜尋邏輯
+    let filtered = allDrugs.filter(d => {
+      const matchText = d.code.toUpperCase().includes(query) || d.name.toUpperCase().includes(query);
+      const matchArea = area === "" || d.area === area;
+      return matchText && matchArea;
+    });
 
-      } catch (e) {
-        progressContainer.innerHTML = "❌ 資料載入錯誤";
+    // 優先排序「完全一致」的項目
+    filtered.sort((a, b) => {
+      if (a.code.toUpperCase() === query) return -1;
+      if (b.code.toUpperCase() === query) return 1;
+      return 0;
+    });
+
+    if (filtered.length === 0) {
+      listDiv.innerHTML = `<p style="text-align:center; padding:20px; color:#94a3b8;">找不到匹配的藥品</p>`;
+      return;
+    }
+
+    listDiv.innerHTML = filtered.slice(0, 30).map(d => `
+      <div class="drug-row">
+        <div class="drug-info">
+          <div class="drug-name">${d.name}</div>
+          <div class="drug-meta">${d.code} | ${d.area} | 儲位: ${d.loc}</div>
+        </div>
+        <button class="btn-add" onclick="addToCart('${d.code}', '${d.name}', '${d.area}-${d.loc}')">+ 指派</button>
+      </div>
+    `).join('');
+  }
+
+  function addToCart(code, name, loc) {
+    cart.set(code, { name, loc });
+    renderCart();
+  }
+
+  function removeFromCart(code) {
+    cart.delete(code);
+    renderCart();
+  }
+
+  function renderCart() {
+    const container = document.getElementById('cart-content');
+    const count = document.getElementById('count');
+    const btn = document.getElementById('publish-btn');
+    
+    container.innerHTML = "";
+    cart.forEach((val, key) => {
+      container.innerHTML += `
+        <div class="cart-item">
+          ${val.name} (${val.loc}) <span onclick="removeFromCart('${key}')">✕</span>
+        </div>`;
+    });
+
+    count.innerText = cart.size;
+    btn.disabled = cart.size === 0;
+  }
+
+  async function submitTasks() {
+    const date = document.getElementById('task-date').value;
+    const drugs = [];
+    cart.forEach((val, key) => drugs.push({ code: key, name: val.name, loc: val.loc }));
+
+    const btn = document.getElementById('publish-btn');
+    btn.innerText = "傳送中...";
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "setTasks", date: date, drugs: drugs })
+      });
+      const result = await res.json();
+      if (result.status === "success") {
+        alert("✅ 抽盤任務已成功發布！");
+        cart.clear();
+        renderCart();
       }
+    } catch(e) {
+      alert("❌ 發布失敗，請確認網路與 GAS 部署。");
+    } finally {
+      btn.innerText = "發佈抽盤任務";
+      btn.disabled = false;
     }
+  }
+</script>
 
-    function renderProgress(tasks) {
-      const container = document.getElementById('progress-container');
-      const stats = {}; 
-
-      tasks.forEach(t => {
-        const area = t[2] || "未分類";
-        if (!stats[area]) stats[area] = { total: 0, done: 0 };
-        stats[area].total++;
-        if (String(t[3]).trim() === "已完成") stats[area].done++;
-      });
-
-      container.innerHTML = "";
-      Object.keys(stats).sort().forEach(area => {
-        const s = stats[area];
-        const percent = Math.round((s.done / s.total) * 100);
-        container.innerHTML += `
-          <div class="progress-item">
-            <div class="progress-info">
-              <span>${area}</span>
-              <span>${percent}% (${s.done}/${s.total})</span>
-            </div>
-            <div class="progress-bg"><div class="progress-fill" style="width:${percent}%"></div></div>
-          </div>
-        `;
-      });
-    }
-
-    function renderTable(tasks, records, drugs) {
-      const body = document.getElementById('result-body');
-      const drugMap = {}; 
-      drugs.forEach(d => drugMap[String(d["藥品代碼"]).trim()] = d["櫃位"] || "-");
-
-      body.innerHTML = "";
-      tasks.forEach(task => {
-        const date = task[0]; // 任務日期
-        const code = String(task[1]).trim();
-        const area = String(task[2]).trim();
-        const status = String(task[3]).trim();
-        const name = task[4];
-        const cabinet = drugMap[code] || "-";
-
-        // 💡 終極比對：代碼 + 區域(去除符號) + 任務日期
-        function clean(s) { return String(s||"").replace(/[\s\-\_－]/g, ""); }
-        
-        const rec = records.find(r => 
-          clean(r["安全代碼"]) === clean(code) && 
-          clean(r["安全區域"]) === clean(area) &&
-          r["任務日期"] === date // 💡 確保這筆紀錄是屬於這天的任務
-        );
-
-        body.innerHTML += `
-          <tr>
-            <td>${area}<br><span class="cabinet-tag">${cabinet}</span></td>
-            <td><strong>${name}</strong><br><small>${code}</small></td>
-            <td style="text-align:center; font-size:16px;">${rec ? rec["安全數量"] : "-"}</td>
-            <td>${rec ? rec["安全效期"] : "-"}</td>
-            <td><small>${rec ? (rec["安全時間"] + " / " + rec["安全盤點人"]) : "-"}</small></td>
-            <td class="${status === '已完成' ? 'status-done' : 'status-wait'}">${status}</td>
-          </tr>
-        `;
-      });
-    }
-  </script>
 </body>
 </html>
