@@ -134,11 +134,10 @@
       }
       
       if (cabName === "未設儲位") return ["未設儲位"];
-      if (cabName === "門地下一") return ["門診區地下一層"];
-      if (cabName === "住地下一") return ["住院藥局(地下一層)"];
 
       switch (mainArea) {
         case "門診":
+          if (cabName === "門地下一") return ["門診區地下一層"];
           if (cabName.startsWith("調3")) return ["調3"];
           if (cabName.startsWith("ADC")) return ["ADC藥櫃"];
           if (cabName.startsWith("水")) return ["水藥台"];
@@ -155,6 +154,7 @@
           return ["調劑檯1", "調劑檯2", "調劑檯4"];
 
         case "急診":
+          if (cabName === "住地下一") return ["住院藥局(地下一層)"];
           if (cabName === "B1冷凍" || cabName.startsWith("B1冷凍")) return ["B1冷凍"];
           if (cabName.startsWith("ER_")) return ["ER_"];
           const enMatch = cabName.match(/^[a-zA-Z]+/);
