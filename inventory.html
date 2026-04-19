@@ -112,7 +112,7 @@
       // 其他大區 (急診、中山、化療等)，直接跳過小區，歸類為「全部品項」
       return ["全部品項"];
     }
-    window.onload = async function() {
+   window.onload = async function() {
       const mainSelect = document.getElementById("main-area");
       const startBtn = document.querySelector("button[onclick='startInventory()']");
       
@@ -148,8 +148,8 @@
           if (!db[mainArea]) db[mainArea] = {};
 
           rawCabinets.forEach(cab => {
-            // 呼叫分類引擎，找出這個儲位屬於哪些小區
-            const subAreas = classifySubAreas(cab);
+            // 🚨 關鍵修正：確實把 mainArea 傳入引擎！
+            const subAreas = classifySubAreas(cab, mainArea);
             
             subAreas.forEach(sub => {
               if (!db[mainArea][sub]) db[mainArea][sub] = {};
@@ -177,7 +177,6 @@
         mainSelect.innerHTML = '<option value="" disabled selected>連線失敗，請重新整理網頁</option>';
       }
     };
-
     function updateSubArea() {
       const mainArea = document.getElementById("main-area").value;
       const subSelect = document.getElementById("sub-area");
