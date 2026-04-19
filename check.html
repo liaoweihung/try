@@ -74,11 +74,10 @@
     }
 
     // 取得有任務的日期
-    async function fetchAvailableDates() {
-      const select = document.getElementById('task-date');
-      try {
-        const res = await fetch(getNoCacheUrl("getAuditDates"));
-        const dates = await res.json();
+   async function fetchAvailableDates() {
+      // 將 action=getAuditDates 改為 getPendingAuditDates
+      const res = await fetch(GAS_URL + "?action=getPendingAuditDates");
+      const dates = await res.json();
         
         select.innerHTML = '<option value="" disabled selected>-- 請選擇任務日期 --</option>';
         if (dates.length === 0) {
