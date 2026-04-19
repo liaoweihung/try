@@ -10,9 +10,9 @@
     .card { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
     label { display: block; margin-bottom: 8px; font-weight: bold; }
     select, input[type="number"] { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
-    button { width: 100%; padding: 15px; background-color: #3498db; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
-    button:active { background-color: #2980b9; }
-    button:disabled { background-color: #95a5a6; cursor: not-allowed; }
+    button { width: 100%; padding: 15px; background-color: #3498db; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
+    button:active { filter: brightness(0.9); }
+    button:disabled { background-color: #95a5a6 !important; cursor: not-allowed; }
     .drug-item { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
     .drug-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; color: #2c3e50; }
     .drug-spec { font-size: 14px; color: #e67e22; font-weight: normal; margin-left: 5px; }
@@ -69,8 +69,21 @@
         style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px; box-sizing: border-box;"></textarea>
     </div>
     
-    <button id="submit-btn" style="background-color: #27ae60;" onclick="submitData()">送出並繼續</button>
+    <button id="submit-btn" style="background-color: #27ae60;" onclick="submitData()">送出並繼續 (連線)</button>
     <button style="background-color: #95a5a6; margin-top: 10px;" onclick="backToSetup()">返回重選</button>
+  </div>
+
+  <div style="background: #fff8e1; border: 2px solid #ffe082; padding: 15px; border-radius: 8px; margin: 15px 0;">
+    <label style="display: flex; align-items: center; cursor: pointer; font-size: 18px; font-weight: bold; color: #b98100;">
+      <input type="checkbox" id="offline-toggle" style="width: 25px; height: 25px; margin-right: 10px;">
+      啟用「盤點資料暫存在手機」模式
+    </label>
+    <div style="margin-top: 15px; border-top: 1px dashed #ffe082; padding-top: 15px;">
+      目前手機暫存：<span id="offline-count" style="font-size: 24px; font-weight: bold; color: #d32f2f;">0</span> 筆
+      <button onclick="processOfflineQueue()" id="btn-upload-offline" style="width: 100%; padding: 12px; margin-top: 10px; background: #2e7d32; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;">
+        ☁️ 一鍵全部上傳
+      </button>
+    </div>
   </div>
 
   <div id="history-section" class="card">
@@ -80,49 +93,51 @@
     </div>
     <div id="history-list" style="font-size: 14px; color: #7f8c8d;">尚無紀錄</div>
   </div>
-<div style="background: #fff8e1; border: 2px solid #ffe082; padding: 15px; border-radius: 8px; margin: 15px 0;">
-  <label style="display: flex; align-items: center; cursor: pointer; font-size: 18px; font-weight: bold; color: #b98100;">
-    <input type="checkbox" id="offline-toggle" style="width: 25px; height: 25px; margin-right: 10px;">
-    啟用「盤點資料暫存在手機」模式
-  </label>
-  <div style="margin-top: 15px; border-top: 1px dashed #ffe082; padding-top: 15px;">
-    目前手機暫存：<span id="offline-count" style="font-size: 24px; font-weight: bold; color: #d32f2f;">0</span> 筆
-    <button onclick="processOfflineQueue()" id="btn-upload-offline" style="width: 100%; padding: 12px; margin-top: 10px; background: #2e7d32; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;">
-      ☁️ 一鍵全部上傳
-    </button>
-  </div>
-</div>
+
   <script>
     // ⚠️ 請務必替換為您的 GAS 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec";
 
     const db = {};
+    
+    // 💡 將陣列定義移到最上方，確保所有函數都能讀取到
     let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
+    let offlineQueue = JSON.parse(localStorage.getItem("offlineQueue")) || [];
 
-// 💡 核心分類引擎：大區模組化隔離版 (含急診正則解析)
+    // 🎨 監聽離線開關，動態改變按鈕顏色與文字
+    window.addEventListener('load', () => {
+      updateOfflineUI();
+      const toggle = document.getElementById('offline-toggle');
+      if (toggle) {
+        toggle.addEventListener('change', function() {
+          const btn = document.getElementById('submit-btn');
+          if (this.checked) {
+            btn.innerText = "📥 暫存至手機 (離線)";
+            btn.style.backgroundColor = "#f39c12"; // 橘黃色
+          } else {
+            btn.innerText = "送出並繼續 (連線)";
+            btn.style.backgroundColor = "#27ae60"; // 綠色
+          }
+        });
+      }
+    });
+
+    // 核心分類引擎 (保留您修正過的版本)
     function classifySubAreas(cabName, mainArea, unit) {
-      // 🌟 絕對優先權 1：中山區專屬 VIP 通道！(無視儲位，只看單位)
       if (mainArea === "中山") {
         const u = String(unit || "").toUpperCase();
         if (u === "CAPS" || u === "TABL") return ["口服"];
         if (u === "TUBE" || u === "BTL" || u === "PACH" || u === "SACH") return ["外用"];
         if (u === "AMPU") return ["注射"];
-        
-        // 如果中山區有藥品單位不符合上面三個，才把它丟去未設儲位或其他
         if (cabName === "未設儲位") return ["未設儲位"];
         return ["其他(中山)"];
       }
       
-      // 🚨 關鍵修正 1：明確攔截「未設儲位」
       if (cabName === "未設儲位") return ["未設儲位"];
-      // 🌟【跨區通用規則】
       if (cabName === "門地下一") return ["門診區地下一層"];
       if (cabName === "住地下一") return ["住院藥局(地下一層)"];
 
-      // 🌟【依大區各自表述】
       switch (mainArea) {
-        
-        // 🏥 門診專屬規則
         case "門診":
           if (cabName.startsWith("調3")) return ["調3"];
           if (cabName.startsWith("ADC")) return ["ADC藥櫃"];
@@ -139,37 +154,14 @@
           if (cabName.startsWith("藥包機")) return ["藥包機"];
           return ["調劑檯1", "調劑檯2", "調劑檯4"];
 
-          // 🚑 急診專屬規則 (加入 ER_ 與 B1冷凍 攔截)
         case "急診":
-          // 🆕 特殊攔截 1：B1冷凍 (優先處理避免被後續規則誤判)
-          if (cabName === "B1冷凍" || cabName.startsWith("B1冷凍")) {
-            return ["B1冷凍"];
-          }
-
-          // 🆕 特殊攔截 2：ER_ 開頭 (包含底線的特殊前綴)
-          if (cabName.startsWith("ER_")) {
-            return ["ER_"];
-          }
-      
-          // 規則 1：英文開頭 (例如 PU123 -> PU, EU1 -> EU)
-          // 邏輯：抓取字首連續的英文字母
+          if (cabName === "B1冷凍" || cabName.startsWith("B1冷凍")) return ["B1冷凍"];
+          if (cabName.startsWith("ER_")) return ["ER_"];
           const enMatch = cabName.match(/^[a-zA-Z]+/);
-          if (enMatch) {
-            return [enMatch[0].toUpperCase()]; 
-          }
-
-          // 規則 2：中文開頭 (例如 急冰14 -> 急冰1, 庫A左71 -> 庫A左7)
-          // 邏輯：只要是中文開頭，就把字串「最後面的一個數字」消滅掉
-          if (/^[\u4e00-\u9fa5]/.test(cabName)) {
-            return [cabName.replace(/\d$/, '')];
-          }
-
-          // 規則 3：其餘的儲位，小區顯示和儲位一模一樣
+          if (enMatch) return [enMatch[0].toUpperCase()]; 
+          if (/^[\u4e00-\u9fa5]/.test(cabName)) return [cabName.replace(/\d$/, '')];
           return [cabName];
 
-
-        // 📦 藥庫、中山、化療等區域 (若無特殊需求直接回傳全部)
-        // 🏥 中山區：改用「庫存單位」來分小區
         case "中山":
           const u = String(unit || "").toUpperCase();
           if (u === "CAP" || u === "TABL") return ["口服"];
@@ -177,37 +169,22 @@
           if (u === "AMPU") return ["注射"];
           return ["其他(中山)"];
 
-          
-        // 📦 藥庫專屬規則
-             case "藥庫":
-        // 🚨 特例優先攔截：處理 E3-1心/內
-          if (cabName.includes("心/內")) {
-            // 如果包含 心/內，一律歸類到「E3」小區
-            return ["E3"];
-          }
-          // 規則 1：英文開頭 + (可選的左右) + 數字 (例如 A右1-2 -> A右1, E4-3 -> E4, D2箱1 -> D2)
+        case "藥庫":
+          if (cabName.includes("心/內")) return ["E3"];
           const rackMatch = cabName.match(/^[a-zA-Z]+[左右]?\d+/);
-          if (rackMatch) {
-            return [rackMatch[0]]; 
-          }
-
-          // 規則 2：含有橫槓「-」的，直接切斷保留前半部 (例如 管1-3 -> 管1, 冰3-4 -> 冰3)
-          if (cabName.includes("-")) {
-            return [cabName.split("-")[0]];
-          }
-
-          // 規則 3：其餘沒有特殊符號的獨立區 (例如 放射科, 防爆, 腹膜透析, 化2)
+          if (rackMatch) return [rackMatch[0]]; 
+          if (cabName.includes("-")) return [cabName.split("-")[0]];
           return [cabName];
           
         case "化療":
           return ["全部品項"];
 
-        // 🛡️ 防呆機制
         default:
           return ["全部品項"];
       }
     }
-window.onload = async function() {
+
+    window.onload = async function() {
       const mainSelect = document.getElementById("main-area");
       const startBtn = document.querySelector("button[onclick='startInventory()']");
       
@@ -227,31 +204,25 @@ window.onload = async function() {
           
           const name = String(row[1] || "").trim();
           const spec = String(row[2] || "").trim();
-          const unit = String(row[3] || "").trim(); // 📦 抓取庫存單位 (供中山區分類使用)
+          const unit = String(row[3] || "").trim(); 
           const cab1 = String(row[4] || "").trim(); 
           const cab2 = String(row[5] || "").trim(); 
           const mainArea = String(row[6] || "").trim();
 
           if (!mainArea) return; 
 
-          // 收集這個藥的所有原始儲位名稱
           let rawCabinets = [];
           if (cab1) rawCabinets.push(...cab1.split(/[,、，+/]/).map(s => s.trim()).filter(s => s));
           if (cab2) rawCabinets.push(...cab2.split(/[,、，+/]/).map(s => s.trim()).filter(s => s));
-          
-          // 🚨 確保空白儲位會被標記為「未設儲位」
           if (rawCabinets.length === 0) rawCabinets.push("未設儲位");
 
           if (!db[mainArea]) db[mainArea] = {};
 
           rawCabinets.forEach(cab => {
-            // 🚨 這裡就是呼叫分類引擎的地方！現在已經確實把 unit 傳進去了
             const subAreas = classifySubAreas(cab, mainArea, unit);
-            
             subAreas.forEach(sub => {
               if (!db[mainArea][sub]) db[mainArea][sub] = {};
               if (!db[mainArea][sub][cab]) db[mainArea][sub][cab] = [];
-              
               if (!db[mainArea][sub][cab].some(d => d.code === code)) {
                  db[mainArea][sub][cab].push({ code: code, name: name, spec: spec, unit: unit });
               }
@@ -259,7 +230,6 @@ window.onload = async function() {
           });
         });
 
-        // 產生大區選單
         Object.keys(db).sort().forEach(area => {
            const opt = document.createElement("option");
            opt.value = area;
@@ -268,12 +238,13 @@ window.onload = async function() {
         });
 
         renderHistory();
-
+        updateOfflineUI(); // 確保開頭呼叫一次
       } catch(error) {
         alert("❌ 載入失敗，請檢查網路或確認 GAS 網址是否正確！");
         mainSelect.innerHTML = '<option value="" disabled selected>連線失敗，請重新整理網頁</option>';
       }
     };
+
     function updateSubArea() {
       const mainArea = document.getElementById("main-area").value;
       const subSelect = document.getElementById("sub-area");
@@ -284,7 +255,6 @@ window.onload = async function() {
       
       if (db[mainArea]) {
         const subAreas = Object.keys(db[mainArea]).sort();
-
         if (subAreas.length === 1 && subAreas[0] === "全部品項") {
             subSelect.innerHTML = '<option value="全部品項" selected>全部品項</option>';
             updateCabinet(); 
@@ -315,10 +285,20 @@ window.onload = async function() {
           cabinets.forEach(cab => {
             const opt = document.createElement("option");
             opt.value = cab;
-            // 比對本機歷史紀錄，防護機制
+            
             const deskString = mainArea + "-" + subArea;
+            // 🔎 檢查是否已上傳 或 已暫存
+            const isCached = offlineQueue.some(q => q.desk === deskString && q.location === cab);
             const isDone = localHistory.some(h => h.desk === deskString && h.loc === cab);
-            opt.innerText = isDone ? cab + " ✅ (已盤)" : cab;
+            
+            if (isCached) {
+              opt.innerText = cab + " ⏳ (暫存)";
+            } else if (isDone) {
+              opt.innerText = cab + " ✅ (已盤)";
+            } else {
+              opt.innerText = cab;
+            }
+            
             cabSelect.appendChild(opt);
           });
         }
@@ -374,7 +354,7 @@ window.onload = async function() {
       const note = document.getElementById("cabinet-note").value; 
       const mainArea = document.getElementById("main-area").value;
       const subArea = document.getElementById("sub-area").value;
-      const deskString = mainArea + "-" + subArea; // 將大區與小區綁定，確保資料獨立
+      const deskString = mainArea + "-" + subArea; 
       const loc = document.getElementById("cabinet").value;
       const inputs = document.querySelectorAll("#drug-list input[type='number']");
       const isRecount = document.getElementById('recount-mode').checked;
@@ -387,9 +367,7 @@ window.onload = async function() {
         if (qty === "") hasEmpty = true; 
         
         if (isRecount) {
-          if (qty !== "") {
-            itemsToSubmit.push({ drugCode: input.getAttribute("data-code"), drugName: input.getAttribute("data-name"), qty: qty });
-          }
+          if (qty !== "") itemsToSubmit.push({ drugCode: input.getAttribute("data-code"), drugName: input.getAttribute("data-name"), qty: qty });
         } else {
           itemsToSubmit.push({ drugCode: input.getAttribute("data-code"), drugName: input.getAttribute("data-name"), qty: qty || 0 });
         }
@@ -405,37 +383,48 @@ window.onload = async function() {
       }
 
       const payload = {
-        desk: deskString, // 例如：門診-調劑檯1
-        location: loc,    // 例如：E3
+        desk: deskString, 
+        location: loc,    
         items: itemsToSubmit,
         mode: isRecount ? "partial" : "full",
         note: note
       };
 
+      // 🛑 先檢查是否為「離線暫存模式」
+      const isOffline = document.getElementById("offline-toggle") && document.getElementById("offline-toggle").checked;
+      
+      if (isOffline) {
+        offlineQueue.push(payload); 
+        localStorage.setItem("offlineQueue", JSON.stringify(offlineQueue));
+        updateOfflineUI();
+        
+        // 將紀錄寫入本機歷史 (標記為暫存)
+        const now = new Date();
+        const timeString = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+        let existingIndex = localHistory.findIndex(h => h.desk === deskString && h.loc === loc);
+        if (existingIndex !== -1) localHistory.splice(existingIndex, 1);
+        localHistory.unshift({ time: timeString, desk: deskString, loc: loc, items: itemsToSubmit, note: note ? "(暫存) " + note : "(暫存中尚未上傳)" });
+        localStorage.setItem("inventoryHistory", JSON.stringify(localHistory));
+
+        alert("✅ 資料已暫存於手機中！");
+        
+        // 🧹 完美還原畫面與清空資料
+        document.getElementById('cabinet-note').value = ''; 
+        document.getElementById('recount-mode').checked = false; 
+        document.getElementById('drug-list').innerHTML = ''; 
+        renderHistory();   
+        updateCabinet(); // 更新下拉選單，顯示 ⏳ 圖示
+        backToSetup();
+        
+        return; // 終止函數，不再往下執行網路連線
+      }
+
+      // 👇 如果沒有開啟離線模式，就會走原本的網路傳送
       const btn = document.getElementById("submit-btn");
       const originalText = btn.innerText;
       btn.innerText = "資料傳送中...";
       btn.disabled = true;
 
-      // 💡 插入開始：檢查開關是否有打開
-  const isOffline = document.getElementById("offline-toggle") && document.getElementById("offline-toggle").checked;
-  
-  if (isOffline) {
-    // payload 是你原本打包好的那個物件變數 (包含 desk, items 等)
-    offlineQueue.push(payload); 
-    localStorage.setItem("offlineQueue", JSON.stringify(offlineQueue));
-    updateOfflineUI();
-    
-    alert("✅ 網路不穩免驚！已暫存於手機中。");
-    
-    // 🚨 這裡請加入你原本「清空輸入框」的程式碼，例如:
-    // currentItems = [];
-    // renderTable(); 
-
-    return; // 直接終止函數，不再往下執行原本的 fetch 網路傳送
-  }
-  // 💡 插入結束。下方保留你原本的 fetch 網路傳送程式碼...
-      
       fetch(GAS_URL, {
         method: "POST",
         body: JSON.stringify(payload)
@@ -511,64 +500,58 @@ window.onload = async function() {
         updateSubArea(); 
       }
     }
+
     // ==========================================
-// 📦 離線暫存大管家系統
-// ==========================================
-let offlineQueue = JSON.parse(localStorage.getItem("offlineQueue")) || [];
-
-// 更新畫面的數字
-function updateOfflineUI() {
-  const countSpan = document.getElementById("offline-count");
-  if(countSpan) countSpan.innerText = offlineQueue.length;
-}
-
-// 網頁一打開就檢查有沒有上次忘記傳的
-window.addEventListener('load', updateOfflineUI);
-
-// 一鍵批次上傳功能
-async function processOfflineQueue() {
-  if (offlineQueue.length === 0) return alert("目前手機內沒有暫存資料喔！");
-
-  const btn = document.getElementById("btn-upload-offline");
-  btn.innerText = "上傳中，請勿關閉畫面 ⏳...";
-  btn.disabled = true;
-
-  let successCount = 0;
-  const total = offlineQueue.length;
-
-  // 讓手機「依序」幫你送資料給 GAS，避免一次塞爆網路
-  for (let i = 0; i < total; i++) {
-    try {
-      // 取出隊伍排第一位的資料送出
-      const response = await fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify(offlineQueue[0]) 
-      });
-      
-      const result = await response.json();
-      
-      if (result.status === "success") {
-        successCount++;
-        offlineQueue.shift(); // 傳送成功，就把它從隊伍中踢掉
-        localStorage.setItem("offlineQueue", JSON.stringify(offlineQueue));
-        updateOfflineUI();
-      }
-    } catch(e) {
-      console.error("網路異常中斷");
-      break; // 網路如果斷了就馬上停止，剩下的保留在手機裡
+    // 📦 離線暫存大管家系統
+    // ==========================================
+    function updateOfflineUI() {
+      const countSpan = document.getElementById("offline-count");
+      if(countSpan) countSpan.innerText = offlineQueue.length;
     }
-  }
 
-  // 恢復按鈕狀態
-  btn.innerText = "☁️ 一鍵全部上傳";
-  btn.disabled = false;
+    async function processOfflineQueue() {
+      if (offlineQueue.length === 0) return alert("目前手機內沒有暫存資料喔！");
 
-  if (offlineQueue.length === 0) {
-    alert("🎉 太棒了！所有暫存資料已全數上傳成功！");
-  } else {
-    alert(`已成功上傳 ${successCount} 筆。剩餘 ${offlineQueue.length} 筆傳送失敗，請移至網路良好處再按一次上傳。`);
-  }
-}
+      const btn = document.getElementById("btn-upload-offline");
+      btn.innerText = "上傳中，請勿關閉畫面 ⏳...";
+      btn.disabled = true;
+
+      let successCount = 0;
+      const total = offlineQueue.length;
+
+      for (let i = 0; i < total; i++) {
+        try {
+          const response = await fetch(GAS_URL, {
+            method: "POST",
+            body: JSON.stringify(offlineQueue[0]) 
+          });
+          
+          const result = await response.json();
+          
+          if (result.status === "success") {
+            successCount++;
+            offlineQueue.shift(); 
+            localStorage.setItem("offlineQueue", JSON.stringify(offlineQueue));
+            updateOfflineUI();
+          }
+        } catch(e) {
+          console.error("網路異常中斷");
+          break; 
+        }
+      }
+
+      btn.innerText = "☁️ 一鍵全部上傳";
+      btn.disabled = false;
+      
+      // 🌟 上傳完畢後，強制更新下拉選單的圖示 (⏳ 變成 ✅)
+      updateCabinet(); 
+
+      if (offlineQueue.length === 0) {
+        alert("🎉 太棒了！所有暫存資料已全數上傳成功！");
+      } else {
+        alert(`已成功上傳 ${successCount} 筆。剩餘 ${offlineQueue.length} 筆傳送失敗，請移至網路良好處再按一次上傳。`);
+      }
+    }
   </script>
 </body>
 </html>
