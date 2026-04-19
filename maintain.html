@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>藥品主檔維護系統</title>
+  <style>
+    body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; margin: 0; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 20px; }
+    
+    h2 { margin-top: 0; color: #0f172a; display: flex; justify-content: space-between; align-items: center; }
+    input[type="text"] { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 15px; }
+    
+    .btn { padding: 10px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; transition: 0.2s; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-outline { background: white; border: 1px solid #cbd5e1; color: #475569; }
+    
+    /* 藥品清單 */
+    .drug-list { max-height: 60vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .drug-row { padding: 15px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+    .drug-row:hover { background: #f8fafc; }
+    .drug-info { flex: 1; }
+    .drug-name { font-size: 18px; font-weight: bold; color: #1e293b; margin-bottom: 4px; }
+    .drug-meta { font-size: 14px; color: #64748b; }
+    .action-btns { display: flex; gap: 8px; }
+
+    /* 浮動編輯視窗 (Modal) */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-weight: bold; color: #475569; margin-bottom: 5px; font-size: 14px; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; box-sizing: border-box; }
+    .form-group input:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+    <h2>
+      ⚙️ 藥品主檔維護
+      <button class="btn btn-success" onclick="openModal('add')">➕ 新增藥品</button>
+    </h2>
+    
+    <input type="text" id="search-bar" placeholder="🔍 搜尋代碼或藥名..." oninput="renderList()">
+    
+    <div class="drug-list" id="drug-container">
+      <p style="text-align:center; color:#94a3b8; padding: 20px;">資料載入中，請稍候...</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="drug-modal">
+  <div class="modal-content">
+    <h3 id="modal-title" style="margin-top:0; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">新增藥品</h3>
+    
+    <div class="form-group">
+      <label>院內碼 (儲存後不可更改)</label>
+      <input type="text" id="f-code" placeholder="例如: MHA0102">
+    </div>
+    <div class="form-group">
+      <label>藥品名稱</label>
+      <input type="text" id="f-name" placeholder="例如: Allegra 60mg">
+    </div>
+    <div class="form-group">
+      <label>規格</label>
+      <input type="text" id="f-spec" placeholder="例如: 60mg/tab">
+    </div>
+    <div class="form-group">
+      <label>庫存單位</label>
+      <input type="text" id="f-unit" placeholder="例如: TABL">
+    </div>
+    <div style="display:flex; gap:10px;">
+      <div class="form-group" style="flex:1;">
+        <label>儲位 1</label>
+        <input type="text" id="f-cab1" placeholder="例如: 調1">
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label>儲位 2</label>
+        <input type="text" id="f-cab2">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>所屬大區</label>
+      <select id="f-area">
+        <option value="門診">門診</option>
+        <option value="急診">急診</option>
+        <option value="中山">中山</option>
+        <option value="藥庫">藥庫</option>
+        <option value="化療">化療</option>
+      </select>
+    </div>
+
+    <div style="display:flex; justify-content: flex-end; gap: 10px; margin-top: 25px;">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="btn-save" onclick="saveDrug()">💾 儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 🚨 請替換成您的 GAS 網址
+  const GAS_URL = "您的_GAS_網址"; 
+  let allDrugs = [];
+  let currentMode = 'add'; // 'add' 或 'edit'
+
+  window.onload = loadData;
+
+  async function loadData() {
+    try {
+      const res = await fetch(GAS_URL + "?action=getDrugs&t=" + new Date().getTime());
+      const data = await res.json();
+      
+      // 解析 9 欄位主檔
+      allDrugs = data.map(row => ({
+        code: String(row[0] || "").trim(),
+        name: String(row[1] || "").trim(),
+        spec: String(row[2] || "").trim(),
+        unit: String(row[3] || "").trim(),
+        cab1: String(row[4] || "").trim(),
+        cab2: String(row[5] || "").trim(),
+        area: String(row[6] || "").trim()
+      })).filter(d => d.code); // 過濾掉空白列
+
+      renderList();
+    } catch(e) {
+      document.getElementById('drug-container').innerHTML = "<p style='text-align:center; color:red;'>載入失敗，請檢查網路</p>";
+    }
+  }
+
+  function renderList() {
+    const query = document.getElementById('search-bar').value.toUpperCase();
+    const container = document.getElementById('drug-container');
+    
+    let filtered = allDrugs.filter(d => 
+      d.code.toUpperCase().includes(query) || d.name.toUpperCase().includes(query)
+    ).slice(0, 50); // 最多顯示 50 筆避免卡頓
+
+    if(filtered.length === 0) {
+      container.innerHTML = "<p style='text-align:center; padding:20px;'>查無此藥品</p>";
+      return;
+    }
+
+    container.innerHTML = filtered.map(d => `
+      <div class="drug-row">
+        <div class="drug-info">
+          <div class="drug-name">${d.name}</div>
+          <div class="drug-meta">
+            ${d.code} | ${d.spec} | 單位: ${d.unit} | 大區: ${d.area} | 儲位: ${d.cab1} ${d.cab2}
+          </div>
+        </div>
+        <div class="action-btns">
+          <button class="btn btn-outline" onclick="openModal('edit', '${d.code}')">✏️ 編輯</button>
+          <button class="btn btn-danger" onclick="deleteDrug('${d.code}', '${d.name}')">🗑️ 刪除</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function openModal(mode, code = '') {
+    currentMode = mode;
+    document.getElementById('drug-modal').style.display = 'flex';
+    document.getElementById('f-code').disabled = (mode === 'edit'); // 編輯時不可改代碼(Primary Key)
+
+    if (mode === 'add') {
+      document.getElementById('modal-title').innerText = "➕ 新增藥品";
+      document.getElementById('f-code').value = "";
+      document.getElementById('f-name').value = "";
+      document.getElementById('f-spec').value = "";
+      document.getElementById('f-unit').value = "";
+      document.getElementById('f-cab1').value = "";
+      document.getElementById('f-cab2').value = "";
+      document.getElementById('f-area').value = "門診";
+    } else {
+      document.getElementById('modal-title').innerText = "✏️ 編輯藥品";
+      const target = allDrugs.find(d => d.code === code);
+      if(target) {
+        document.getElementById('f-code').value = target.code;
+        document.getElementById('f-name').value = target.name;
+        document.getElementById('f-spec').value = target.spec;
+        document.getElementById('f-unit').value = target.unit;
+        document.getElementById('f-cab1').value = target.cab1;
+        document.getElementById('f-cab2').value = target.cab2;
+        document.getElementById('f-area').value = target.area;
+      }
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('drug-modal').style.display = 'none';
+  }
+
+  async function saveDrug() {
+    const payload = {
+      code: document.getElementById('f-code').value.trim(),
+      name: document.getElementById('f-name').value.trim(),
+      spec: document.getElementById('f-spec').value.trim(),
+      unit: document.getElementById('f-unit').value.trim().toUpperCase(),
+      cab1: document.getElementById('f-cab1').value.trim(),
+      cab2: document.getElementById('f-cab2').value.trim(),
+      area: document.getElementById('f-area').value
+    };
+
+    if(!payload.code || !payload.name) return alert("代碼與藥名不可為空！");
+
+    document.getElementById('btn-save').innerText = "處理中...";
+    document.getElementById('btn-save').disabled = true;
+
+    try {
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "maintainDrug", mode: currentMode, drug: payload })
+      });
+      const result = await res.json();
+      
+      if(result.status === "success") {
+        alert("✅ 儲存成功！");
+        closeModal();
+        await loadData(); // 重新向 GAS 撈取最新資料
+      } else {
+        alert("❌ 錯誤：" + result.message);
+      }
+    } catch(e) {
+      alert("傳送失敗，請檢查網路！");
+    } finally {
+      document.getElementById('btn-save').innerText = "💾 儲存";
+      document.getElementById('btn-save').disabled = false;
+    }
+  }
+
+  async function deleteDrug(code, name) {
+    if(!confirm(`⚠️ 嚴重警告！確定要永久刪除「${name} (${code})」嗎？\n刪除後無法復原！`)) return;
+
+    try {
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "maintainDrug", mode: "delete", drug: { code: code } })
+      });
+      const result = await res.json();
+      
+      if(result.status === "success") {
+        alert("🗑️ 已成功刪除！");
+        await loadData();
+      }
+    } catch(e) {
+      alert("刪除失敗，請檢查網路。");
+    }
+  }
+</script>
+
+</body>
+</html>
