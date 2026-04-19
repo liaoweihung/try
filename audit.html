@@ -3,193 +3,184 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>主管派案 - 抽盤系統</title>
+  <title>主管審核報表 - 抽盤系統</title>
   <style>
-    body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #f8fafc; padding: 20px; color: #334155; }
-    .container { max-width: 800px; margin: 0 auto; }
-    .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+    body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #f8fafc; padding: 20px; color: #334155; margin: 0; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 24px; }
     
-    label { font-weight: bold; color: #3b82f6; display: block; margin-bottom: 8px; font-size: 14px; }
-    input, select { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 16px; box-sizing: border-box; margin-bottom: 20px; }
+    h2 { margin-top: 0; color: #1e293b; text-align: center; }
+    label { font-weight: bold; color: #3b82f6; display: block; margin-bottom: 8px; font-size: 15px; }
+    select { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 16px; margin-bottom: 20px; background: #fff; }
     
-    /* 搜尋結果清單 */
-    .search-result-box { border: 1px solid #e2e8f0; border-radius: 10px; max-height: 300px; overflow-y: auto; background: #fff; }
-    .drug-row { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
-    .drug-row:hover { background: #f0f9ff; }
-    .drug-info { line-height: 1.4; }
-    .drug-name { font-weight: bold; font-size: 16px; color: #1e293b; }
-    .drug-meta { font-size: 13px; color: #64748b; }
-    .btn-add { background: #3b82f6; color: white; border: none; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-    
-    /* 待派案購物車 */
-    .cart-section { background: #eff6ff; border: 2px solid #dbeafe; padding: 15px; border-radius: 12px; }
-    .cart-item { display: inline-flex; align-items: center; background: #3b82f6; color: white; padding: 5px 12px; border-radius: 20px; margin: 5px; font-size: 14px; }
-    .cart-item span { margin-left: 8px; cursor: pointer; background: rgba(0,0,0,0.2); border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
+    /* 進度條 */
+    .progress-box { margin-bottom: 20px; }
+    .progress-text { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; }
+    .bar-bg { background: #e2e8f0; height: 12px; border-radius: 6px; overflow: hidden; }
+    .bar-fill { height: 100%; background: #22c55e; transition: width 0.5s ease-out; }
 
-    .btn-publish { background: #22c55e; color: white; border: none; width: 100%; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; box-shadow: 0 4px 10px rgba(34, 197, 94, 0.3); }
-    .btn-publish:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; }
-
-    .footer-note { margin-top: 40px; padding: 20px; background: #f1f5f9; border-radius: 10px; border-top: 4px solid #94a3b8; font-size: 14px; color: #475569; }
+    /* 表格樣式 */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
+    th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+    th { background: #f8fafc; color: #64748b; font-size: 14px; white-space: nowrap; }
+    tr:hover { background: #f0f9ff; }
+    
+    .drug-name { font-weight: bold; color: #1e293b; font-size: 16px; }
+    .drug-code { font-size: 13px; color: #64748b; }
+    
+    /* 標籤 */
+    .badge-done { background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: bold; border: 1px solid #bbf7d0; }
+    .badge-pending { background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: bold; border: 1px solid #fecaca; }
+    .loc-tag { background: #e0f2fe; color: #0284c7; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+    
+    .qty-text { font-size: 18px; font-weight: bold; color: #0f172a; text-align: center; display: block; }
+    .expiry-text { font-size: 14px; color: #e11d48; font-weight: bold; }
+    .user-info { font-size: 13px; color: #64748b; line-height: 1.4; }
+    .user-info strong { color: #3b82f6; }
   </style>
 </head>
 <body>
 
 <div class="container">
   <div class="card">
-    <h2 style="margin-top:0; color:#1e293b; text-align:center;">🎯 抽盤任務指派</h2>
+    <h2>📊 抽盤任務審核報表</h2>
     
-    <label>📅 任務執行日期</label>
-    <input type="date" id="task-date">
-
-    <label>🔍 搜尋藥品 (支援代碼、名稱、大區模糊比對)</label>
-    <input type="text" id="search-input" placeholder="請輸入部分文字..." oninput="filterDrugs()">
-
-    <label>大區過濾</label>
-    <select id="area-filter" onchange="filterDrugs()">
-      <option value="">-- 全部大區 --</option>
+    <label>📅 選擇任務日期：</label>
+    <select id="date-select" onchange="renderReport()">
+      <option value="" disabled selected>⏳ 正在讀取資料庫...</option>
     </select>
 
-    <div class="search-result-box" id="result-list">
-      <p style="text-align:center; padding:20px; color:#94a3b8;">載入主檔資料中，請稍候...</p>
+    <div id="report-container" style="display: none;">
+      <div class="progress-box">
+        <div class="progress-text">
+          <span>該日盤點進度</span>
+          <span id="progress-numbers">0 / 0 (0%)</span>
+        </div>
+        <div class="bar-bg">
+          <div id="progress-bar" class="bar-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>狀態</th>
+              <th>儲位</th>
+              <th>藥品資訊</th>
+              <th style="text-align: center;">實盤數量</th>
+              <th>最舊效期</th>
+              <th>盤點人員/時間</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            </tbody>
+        </table>
+      </div>
     </div>
-  </div>
-
-  <div class="card cart-section">
-    <label>🛒 待派案清單 (<span id="count">0</span> 項)</label>
-    <div id="cart-content"></div>
-    <button class="btn-publish" id="publish-btn" onclick="submitTasks()" disabled>發布抽盤任務</button>
-  </div>
-
-  <div class="footer-note">
-    <strong>📋 派案操作說明：</strong><br><br>
-    1. <b>搜尋：</b> 輸入部分藥名或院內碼，系統會即時篩選。若有同成分不同規格，請從清單中點選正確品項。<br>
-    2. <b>完全一致：</b> 若搜尋文字與代碼完全相同，該品項會排在清單第一位。<br>
-    3. <b>加入：</b> 點擊「+ 指派」可將藥品放入下方清單。可同時跨區挑選多項藥品一次發布。<br>
-    4. <b>發布：</b> 設定好執行日期後按「發布」，任務將會同步到同仁的手機端。
   </div>
 </div>
 
 <script>
   // 🚨 請替換成您的 GAS 網址
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec"; 
-  let allDrugs = [];
-  let cart = new Map();
+  const GAS_URL = "您的_GAS_網址"; 
+  let rawTasks = [];
+  let rawRecords = [];
 
   window.onload = async function() {
-    document.getElementById('task-date').valueAsDate = new Date();
     try {
-      const res = await fetch(GAS_URL + "?action=getDrugs");
+      // 加上時間戳記避免瀏覽器快取舊資料
+      const res = await fetch(GAS_URL + "?action=getAuditReport&t=" + new Date().getTime());
       const data = await res.json();
       
-      // 🎯 關鍵校準：對齊 9 欄位 (代碼 0, 商品名 1, 儲位 4, 大區 7)
-      allDrugs = data.map(row => ({
-        code: String(row[0]).trim(),
-        name: String(row[1]).trim(),
-        loc: String(row[4]).trim(), 
-        area: String(row[7]).trim() 
-      })).filter(d => d.code && d.area); // 過濾無效資料
+      rawTasks = data.tasks || [];
+      rawRecords = data.records || [];
 
-      // 動態填入大區選項
-      const areas = [...new Set(allDrugs.map(d => d.area))].sort();
-      const select = document.getElementById('area-filter');
-      areas.forEach(a => {
-        select.innerHTML += `<option value="${a}">${a}</option>`;
-      });
-
-      filterDrugs();
+      populateDateDropdown();
     } catch(e) {
-      document.getElementById('result-list').innerHTML = `<p style="text-align:center; color:red;">載入失敗，請檢查網路</p>`;
+      document.getElementById('date-select').innerHTML = '<option disabled selected>❌ 資料載入失敗，請檢查網路</option>';
     }
   };
 
-  function filterDrugs() {
-    const query = document.getElementById('search-input').value.trim().toUpperCase();
-    const area = document.getElementById('area-filter').value;
-    const listDiv = document.getElementById('result-list');
+  // 1. 從任務清單中取出所有不重複的日期
+  function populateDateDropdown() {
+    const select = document.getElementById('date-select');
+    const dates = [...new Set(rawTasks.map(t => t[0]))].sort().reverse(); // 最新日期排前面
     
-    // 模糊搜尋邏輯
-    let filtered = allDrugs.filter(d => {
-      const matchText = d.code.toUpperCase().includes(query) || d.name.toUpperCase().includes(query);
-      const matchArea = area === "" || d.area === area;
-      return matchText && matchArea;
-    });
-
-    // 優先排序「完全一致」的項目
-    filtered.sort((a, b) => {
-      if (a.code.toUpperCase() === query) return -1;
-      if (b.code.toUpperCase() === query) return 1;
-      return 0;
-    });
-
-    if (filtered.length === 0) {
-      listDiv.innerHTML = `<p style="text-align:center; padding:20px; color:#94a3b8;">找不到匹配的藥品</p>`;
+    if (dates.length === 0) {
+      select.innerHTML = '<option disabled selected>目前尚無任何派案紀錄</option>';
       return;
     }
 
-    listDiv.innerHTML = filtered.slice(0, 30).map(d => `
-      <div class="drug-row">
-        <div class="drug-info">
-          <div class="drug-name">${d.name}</div>
-          <div class="drug-meta">${d.code} | ${d.area} | 儲位: ${d.loc}</div>
-        </div>
-        <button class="btn-add" onclick="addToCart('${d.code}', '${d.name}', '${d.area}-${d.loc}')">+ 指派</button>
-      </div>
-    `).join('');
+    select.innerHTML = '<option value="" disabled selected>-- 請選擇要查看的任務日期 --</option>';
+    dates.forEach(d => {
+      select.innerHTML += `<option value="${d}">${d}</option>`;
+    });
   }
 
-  function addToCart(code, name, loc) {
-    cart.set(code, { name, loc });
-    renderCart();
-  }
-
-  function removeFromCart(code) {
-    cart.delete(code);
-    renderCart();
-  }
-
-  function renderCart() {
-    const container = document.getElementById('cart-content');
-    const count = document.getElementById('count');
-    const btn = document.getElementById('publish-btn');
+  // 2. 渲染選定日期的報表
+  function renderReport() {
+    const selectedDate = document.getElementById('date-select').value;
+    const container = document.getElementById('report-container');
+    const tbody = document.getElementById('table-body');
     
-    container.innerHTML = "";
-    cart.forEach((val, key) => {
-      container.innerHTML += `
-        <div class="cart-item">
-          ${val.name} (${val.loc}) <span onclick="removeFromCart('${key}')">✕</span>
-        </div>`;
+    // 篩選該日期的所有任務
+    const dayTasks = rawTasks.filter(t => t[0] === selectedDate);
+    let completedCount = 0;
+    
+    tbody.innerHTML = "";
+
+    dayTasks.forEach(task => {
+      const tCode = String(task[1]).trim();
+      const tName = String(task[2]).trim();
+      const tLoc = String(task[3]).trim();
+      const tStatus = String(task[5]).trim();
+      
+      // 🎯 核心比對邏輯：去「抽盤紀錄」尋找 (任務日+代碼+儲位) 完全相符的最新一筆紀錄
+      const matchRecord = rawRecords.slice().reverse().find(r => 
+        String(r[2]).trim() === selectedDate && 
+        String(r[3]).trim() === tCode && 
+        String(r[5]).trim() === tLoc
+      );
+
+      const isDone = (tStatus === "已盤點" || matchRecord);
+      if (isDone) completedCount++;
+
+      const statusBadge = isDone 
+        ? `<span class="badge-done">✅ 已盤點</span>` 
+        : `<span class="badge-pending">⏳ 待盤點</span>`;
+
+      // 若有紀錄則顯示盤點數值，否則顯示橫槓
+      const qty = matchRecord ? `<span class="qty-text">${matchRecord[6]}</span>` : `<span style="color:#cbd5e1; text-align:center; display:block;">-</span>`;
+      const expiry = (matchRecord && matchRecord[7]) ? `<span class="expiry-text">${matchRecord[7]}</span>` : `<span style="color:#cbd5e1;">-</span>`;
+      const userInfo = matchRecord 
+        ? `<div class="user-info"><strong>${matchRecord[1]}</strong><br>${new Date(matchRecord[0]).toLocaleTimeString()}</div>` 
+        : `<span style="color:#cbd5e1;">-</span>`;
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${statusBadge}</td>
+          <td><span class="loc-tag">${tLoc}</span></td>
+          <td>
+            <div class="drug-name">${tName}</div>
+            <div class="drug-code">${tCode}</div>
+          </td>
+          <td>${qty}</td>
+          <td>${expiry}</td>
+          <td>${userInfo}</td>
+        </tr>
+      `;
     });
 
-    count.innerText = cart.size;
-    btn.disabled = cart.size === 0;
-  }
-
-  async function submitTasks() {
-    const date = document.getElementById('task-date').value;
-    const drugs = [];
-    cart.forEach((val, key) => drugs.push({ code: key, name: val.name, loc: val.loc }));
-
-    const btn = document.getElementById('publish-btn');
-    btn.innerText = "傳送中...";
-    btn.disabled = true;
-
-    try {
-      const res = await fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "setTasks", date: date, drugs: drugs })
-      });
-      const result = await res.json();
-      if (result.status === "success") {
-        alert("✅ 抽盤任務已成功發布！");
-        cart.clear();
-        renderCart();
-      }
-    } catch(e) {
-      alert("❌ 發布失敗，請確認網路與 GAS 部署。");
-    } finally {
-      btn.innerText = "發佈抽盤任務";
-      btn.disabled = false;
-    }
+    // 3. 更新進度條
+    const total = dayTasks.length;
+    const percent = total === 0 ? 0 : Math.round((completedCount / total) * 100);
+    
+    document.getElementById('progress-numbers').innerText = `${completedCount} / ${total} (${percent}%)`;
+    document.getElementById('progress-bar').style.width = `${percent}%`;
+    document.getElementById('progress-bar').style.background = percent === 100 ? "#22c55e" : "#3b82f6";
+    
+    container.style.display = "block";
   }
 </script>
 
