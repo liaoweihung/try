@@ -88,19 +88,18 @@
     const db = {};
     let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
 
-// 💡 核心分類引擎：大區模組化隔離版 (終極版)
+// 💡 核心分類引擎：大區模組化隔離版 (含急診正則解析)
     function classifySubAreas(cabName, mainArea) {
       if (!cabName || cabName === "全部品項") return ["全部品項"];
       
       // 🌟【跨區通用規則】
-      // 這是您在 Excel 的 F 欄 (第二儲位) 手動建立的跨區標準名稱，擁有最高優先權
       if (cabName === "門地下一") return ["門診區地下一層"];
       if (cabName === "住地下一") return ["住院藥局(地下一層)"];
 
       // 🌟【依大區各自表述】
       switch (mainArea) {
         
-        // 🏥 門診的專屬規則包廂
+        // 🏥 門診專屬規則
         case "門診":
           if (cabName.startsWith("調3")) return ["調劑檯3"];
           if (cabName.startsWith("ADC")) return ["ADC藥櫃"];
@@ -108,37 +107,34 @@
           if (cabName.startsWith("專案")) return ["專案櫃"];
           if (cabName.startsWith("磨粉區")) return ["磨粉區"];
           if (cabName.startsWith("藥包機")) return ["藥包機"];
-          
-          // 門診剩下的純代碼 (B1, E3 等)
           return ["調劑檯1", "調劑檯2", "調劑檯4"];
 
-
-        // 📦 藥庫的專屬規則包廂 (依照您截圖的範例擴充)
-        case "藥庫":
-          if (cabName.startsWith("管")) return ["管制藥品區"];
-          if (cabName.startsWith("F")) return ["F區輸注液"]; // 假設 F 開頭是特定區
-          
-          // 藥庫剩下的其他儲位，可以統一叫一般藥架，或是直接回傳「全部品項」讓它不分小區
-          return ["一般藥架"]; 
-
-
-        // 🚑 急診的專屬規則包廂 (您可以自行修改)
+        // 🚑 急診專屬規則 (全新自動解析邏輯)
         case "急診":
-          if (cabName.startsWith("冰箱")) return ["急診冰箱"];
-          if (cabName.startsWith("管")) return ["急診管制櫃"];
-          
-          // 如果急診不分小區，大家一起盤，就直接回傳儲位本身，或全部品項
-          return ["全部品項"]; 
+          // 規則 1：英文開頭 (例如 PU123 -> PU, EU1 -> EU)
+          // 邏輯：抓取字首連續的英文字母
+          const enMatch = cabName.match(/^[a-zA-Z]+/);
+          if (enMatch) {
+            return [enMatch[0].toUpperCase()]; 
+          }
+
+          // 規則 2：中文開頭 (例如 急冰14 -> 急冰1, 庫A左71 -> 庫A左7)
+          // 邏輯：只要是中文開頭，就把字串「最後面的一個數字」消滅掉
+          if (/^[\u4e00-\u9fa5]/.test(cabName)) {
+            return [cabName.replace(/\d$/, '')];
+          }
+
+          // 規則 3：其餘的儲位，小區顯示和儲位一模一樣
+          return [cabName];
 
 
-        // 🩸 中山或化療等配置單純的區域
+        // 📦 藥庫、中山、化療等區域 (若無特殊需求直接回傳全部)
+        case "藥庫":
         case "中山":
         case "化療":
-          // 如果這些地方根本不需要分小區，就直接回傳全部品項
           return ["全部品項"];
 
-
-        // 🛡️ 防呆機制：如果遇到沒設定過的大區
+        // 🛡️ 防呆機制
         default:
           return ["全部品項"];
       }
