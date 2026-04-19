@@ -89,7 +89,19 @@
     let localHistory = JSON.parse(localStorage.getItem("inventoryHistory")) || [];
 
 // 💡 核心分類引擎：大區模組化隔離版 (含急診正則解析)
-    function classifySubAreas(cabName, mainArea) {
+    function classifySubAreas(cabName, mainArea, unit) {
+      // 🌟 絕對優先權 1：中山區專屬 VIP 通道！(無視儲位，只看單位)
+      if (mainArea === "中山") {
+        const u = String(unit || "").toUpperCase();
+        if (u === "CAP" || u === "TABL") return ["口服"];
+        if (u === "TUBE" || u === "BTL" || u === "SACH") return ["外用"];
+        if (u === "AMPU") return ["注射"];
+        
+        // 如果中山區有藥品單位不符合上面三個，才把它丟去未設儲位或其他
+        if (cabName === "未設儲位") return ["未設儲位"];
+        return ["其他(中山)"];
+      }
+      
       // 🚨 關鍵修正 1：明確攔截「未設儲位」
       if (cabName === "未設儲位") return ["未設儲位"];
       // 🌟【跨區通用規則】
@@ -216,7 +228,7 @@ window.onload = async function() {
 
           rawCabinets.forEach(cab => {
             // 🚨 這裡就是呼叫分類引擎的地方！現在已經確實把 unit 傳進去了
-            const subAreas = classifySubAreas(cab, mainArea, "CAP");
+            const subAreas = classifySubAreas(cab, mainArea, unit);
             
             subAreas.forEach(sub => {
               if (!db[mainArea][sub]) db[mainArea][sub] = {};
