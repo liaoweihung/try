@@ -29,7 +29,7 @@
     .drug-meta { font-size: 14px; color: #64748b; }
     .action-btns { display: flex; gap: 8px; }
 
-    /* 浮動編輯視窗 (Modal) */
+    /* 浮動編輯視窗 */
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
     .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
     .form-group { margin-bottom: 15px; }
@@ -105,9 +105,13 @@
 
 <script>
   // 🚨 請替換成您的 GAS 網址
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbypLTxCYzcQJOiVYfqGncfZFeHpy_HBxL5QFWJr9QIsinMMNoKvyLRgPggAR40z7vQH3A/exec"; 
+  const GAS_URL = "您的_GAS_網址"; 
   let allDrugs = [];
-  let currentMode = 'add'; // 'add' 或 'edit'
+  
+  // 💡 新增追蹤變數，記住現在是在改哪一個大區的資料
+  let currentMode = 'add'; 
+  let currentEditCode = '';
+  let currentEditArea = ''; 
 
   window.onload = loadData;
 
@@ -116,7 +120,6 @@
       const res = await fetch(GAS_URL + "?action=getDrugs&t=" + new Date().getTime());
       const data = await res.json();
       
-      // 解析 9 欄位主檔
       allDrugs = data.map(row => ({
         code: String(row[0] || "").trim(),
         name: String(row[1] || "").trim(),
@@ -125,7 +128,7 @@
         cab1: String(row[4] || "").trim(),
         cab2: String(row[5] || "").trim(),
         area: String(row[6] || "").trim()
-      })).filter(d => d.code); // 過濾掉空白列
+      })).filter(d => d.code); 
 
       renderList();
     } catch(e) {
@@ -139,7 +142,7 @@
     
     let filtered = allDrugs.filter(d => 
       d.code.toUpperCase().includes(query) || d.name.toUpperCase().includes(query)
-    ).slice(0, 50); // 最多顯示 50 筆避免卡頓
+    ).slice(0, 50); 
 
     if(filtered.length === 0) {
       container.innerHTML = "<p style='text-align:center; padding:20px;'>查無此藥品</p>";
@@ -155,17 +158,20 @@
           </div>
         </div>
         <div class="action-btns">
-          <button class="btn btn-outline" onclick="openModal('edit', '${d.code}')">✏️ 編輯</button>
-          <button class="btn btn-danger" onclick="deleteDrug('${d.code}', '${d.name}')">🗑️ 刪除</button>
+          <button class="btn btn-outline" onclick="openModal('edit', '${d.code}', '${d.area}')">✏️ 編輯</button>
+          <button class="btn btn-danger" onclick="deleteDrug('${d.code}', '${d.name}', '${d.area}')">🗑️ 刪除</button>
         </div>
       </div>
     `).join('');
   }
 
-  function openModal(mode, code = '') {
+  function openModal(mode, code = '', area = '') {
     currentMode = mode;
+    currentEditCode = code;
+    currentEditArea = area; // 記錄原本的大區
+
     document.getElementById('drug-modal').style.display = 'flex';
-    document.getElementById('f-code').disabled = (mode === 'edit'); // 編輯時不可改代碼(Primary Key)
+    document.getElementById('f-code').disabled = (mode === 'edit'); 
 
     if (mode === 'add') {
       document.getElementById('modal-title').innerText = "➕ 新增藥品";
@@ -178,7 +184,8 @@
       document.getElementById('f-area').value = "門診";
     } else {
       document.getElementById('modal-title').innerText = "✏️ 編輯藥品";
-      const target = allDrugs.find(d => d.code === code);
+      // 💡 精準尋找：代碼和「大區」必須同時吻合
+      const target = allDrugs.find(d => d.code === code && d.area === area);
       if(target) {
         document.getElementById('f-code').value = target.code;
         document.getElementById('f-name').value = target.name;
@@ -203,7 +210,8 @@
       unit: document.getElementById('f-unit').value.trim().toUpperCase(),
       cab1: document.getElementById('f-cab1').value.trim(),
       cab2: document.getElementById('f-cab2').value.trim(),
-      area: document.getElementById('f-area').value
+      area: document.getElementById('f-area').value,
+      oldArea: currentEditArea // 💡 將原本的大區傳給 GAS，確保改對列
     };
 
     if(!payload.code || !payload.name) return alert("代碼與藥名不可為空！");
@@ -221,7 +229,7 @@
       if(result.status === "success") {
         alert("✅ 儲存成功！");
         closeModal();
-        await loadData(); // 重新向 GAS 撈取最新資料
+        await loadData(); 
       } else {
         alert("❌ 錯誤：" + result.message);
       }
@@ -233,19 +241,22 @@
     }
   }
 
-  async function deleteDrug(code, name) {
-    if(!confirm(`⚠️ 嚴重警告！確定要永久刪除「${name} (${code})」嗎？\n刪除後無法復原！`)) return;
+  async function deleteDrug(code, name, area) {
+    if(!confirm(`⚠️ 嚴重警告！\n確定要永久刪除「${area}」的「${name} (${code})」嗎？\n刪除後無法復原！`)) return;
 
     try {
       const res = await fetch(GAS_URL, {
         method: "POST",
-        body: JSON.stringify({ action: "maintainDrug", mode: "delete", drug: { code: code } })
+        // 💡 刪除時也一併傳送原本的大區
+        body: JSON.stringify({ action: "maintainDrug", mode: "delete", drug: { code: code, oldArea: area } })
       });
       const result = await res.json();
       
       if(result.status === "success") {
         alert("🗑️ 已成功刪除！");
         await loadData();
+      } else {
+        alert("❌ 刪除失敗：" + result.message);
       }
     } catch(e) {
       alert("刪除失敗，請檢查網路。");
