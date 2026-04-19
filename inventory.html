@@ -90,8 +90,8 @@
 
 // 💡 核心分類引擎：大區模組化隔離版 (含急診正則解析)
     function classifySubAreas(cabName, mainArea) {
-      if (!cabName || cabName === "全部品項") return ["全部品項"];
-      
+      // 🚨 關鍵修正 1：明確攔截「未設儲位」
+      if (cabName === "未設儲位") return ["未設儲位"];
       // 🌟【跨區通用規則】
       if (cabName === "門地下一") return ["門診區地下一層"];
       if (cabName === "住地下一") return ["住院藥局(地下一層)"];
@@ -201,8 +201,9 @@
           let rawCabinets = [];
           if (cab1) rawCabinets.push(...cab1.split(/[,、，+/]/).map(s => s.trim()).filter(s => s));
           if (cab2) rawCabinets.push(...cab2.split(/[,、，+/]/).map(s => s.trim()).filter(s => s));
-          if (rawCabinets.length === 0) rawCabinets.push("全部品項");
 
+// 🚨 關鍵修正 2：如果 E 欄跟 F 欄都是空的，強制貼上「未設儲位」標籤
+          if (rawCabinets.length === 0) rawCabinets.push("未設儲位");
           if (!db[mainArea]) db[mainArea] = {};
 
           rawCabinets.forEach(cab => {
