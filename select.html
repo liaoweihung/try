@@ -81,15 +81,14 @@
       const res = await fetch(GAS_URL + "?action=getDrugs");
       const data = await res.json();
       
-      // 🎯 關鍵校準：對齊 9 欄位 (代碼 0, 商品名 1, 儲位 4, 大區 7)
+      // 🎯 已精準校正：代碼[0], 名稱[1], 儲位[4], 大區[6]
       allDrugs = data.map(row => ({
-        code: String(row[0]).trim(),
-        name: String(row[1]).trim(),
-        loc: String(row[4]).trim(), 
-        area: String(row[7]).trim() 
-      })).filter(d => d.code && d.area); // 過濾無效資料
+        code: String(row[0] || "").trim(),
+        name: String(row[1] || "").trim(),
+        loc: String(row[4] || "未設儲位").trim(), 
+        area: String(row[6] || "").trim() 
+      })).filter(d => d.code && d.area && d.area !== "undefined"); 
 
-      // 動態填入大區選項
       const areas = [...new Set(allDrugs.map(d => d.area))].sort();
       const select = document.getElementById('area-filter');
       areas.forEach(a => {
@@ -107,14 +106,12 @@
     const area = document.getElementById('area-filter').value;
     const listDiv = document.getElementById('result-list');
     
-    // 模糊搜尋邏輯
     let filtered = allDrugs.filter(d => {
       const matchText = d.code.toUpperCase().includes(query) || d.name.toUpperCase().includes(query);
       const matchArea = area === "" || d.area === area;
       return matchText && matchArea;
     });
 
-    // 優先排序「完全一致」的項目
     filtered.sort((a, b) => {
       if (a.code.toUpperCase() === query) return -1;
       if (b.code.toUpperCase() === query) return 1;
@@ -138,12 +135,13 @@
   }
 
   function addToCart(code, name, loc) {
-    cart.set(code, { name, loc });
+    const uniqueKey = code + "|" + loc;
+    cart.set(uniqueKey, { code, name, loc });
     renderCart();
   }
 
-  function removeFromCart(code) {
-    cart.delete(code);
+  function removeFromCart(uniqueKey) {
+    cart.delete(uniqueKey);
     renderCart();
   }
 
@@ -167,7 +165,7 @@
   async function submitTasks() {
     const date = document.getElementById('task-date').value;
     const drugs = [];
-    cart.forEach((val, key) => drugs.push({ code: key, name: val.name, loc: val.loc }));
+    cart.forEach((val) => drugs.push({ code: val.code, name: val.name, loc: val.loc }));
 
     const btn = document.getElementById('publish-btn');
     btn.innerText = "傳送中...";
@@ -180,12 +178,12 @@
       });
       const result = await res.json();
       if (result.status === "success") {
-        alert("✅ 抽盤任務已成功發布！");
+        alert("✅ 抽盤任務已成功發佈！");
         cart.clear();
         renderCart();
       }
     } catch(e) {
-      alert("❌ 發布失敗，請確認網路與 GAS 部署。");
+      alert("❌ 發佈失敗，請確認網路連線。");
     } finally {
       btn.innerText = "發佈抽盤任務";
       btn.disabled = false;
