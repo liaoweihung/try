@@ -504,16 +504,19 @@
     // ==========================================
     // 📦 離線暫存大管家系統
     // ==========================================
+    // 📦 離線暫存大管家系統 (修正版：上傳後自動同步更新狀態)
+    // ==========================================
     function updateOfflineUI() {
       const countSpan = document.getElementById("offline-count");
       if(countSpan) countSpan.innerText = offlineQueue.length;
     }
 
+    // ☁️ 批次上傳功能
     async function processOfflineQueue() {
       if (offlineQueue.length === 0) return alert("目前手機內沒有暫存資料喔！");
 
       const btn = document.getElementById("btn-upload-offline");
-      btn.innerText = "上傳中，請勿關閉畫面 ⏳...";
+      btn.innerText = "上傳中... ⏳";
       btn.disabled = true;
 
       let successCount = 0;
@@ -521,18 +524,30 @@
 
       for (let i = 0; i < total; i++) {
         try {
+          const itemToUpload = offlineQueue[0]; 
           const response = await fetch(GAS_URL, {
             method: "POST",
-            body: JSON.stringify(offlineQueue[0]) 
+            body: JSON.stringify(itemToUpload) 
           });
           
           const result = await response.json();
           
           if (result.status === "success") {
             successCount++;
-            offlineQueue.shift(); 
+            offlineQueue.shift(); // 傳送成功，移除暫存
+            
+            // 🌟 同步更新「本機盤點紀錄 (localHistory)」的狀態文字
+            let historyIndex = localHistory.findIndex(h => h.desk === itemToUpload.desk && h.loc === itemToUpload.location);
+            if (historyIndex !== -1) {
+              let currentNote = localHistory[historyIndex].note || "";
+              // 將原本的暫存字眼替換為綠色的已上傳標記
+              localHistory[historyIndex].note = currentNote.replace("(暫存) ", "✅已上傳: ").replace("(暫存中尚未上傳)", "✅已上傳完成");
+            }
+
             localStorage.setItem("offlineQueue", JSON.stringify(offlineQueue));
+            localStorage.setItem("inventoryHistory", JSON.stringify(localHistory));
             updateOfflineUI();
+            renderHistory(); // 立即重新渲染歷史列表，讓紅字變綠字
           }
         } catch(e) {
           console.error("網路異常中斷");
@@ -543,14 +558,42 @@
       btn.innerText = "☁️ 一鍵全部上傳";
       btn.disabled = false;
       
-      // 🌟 上傳完畢後，強制更新下拉選單的圖示 (⏳ 變成 ✅)
+      // 更新下拉選單的圖示 (⏳ 變成 ✅)
       updateCabinet(); 
 
       if (offlineQueue.length === 0) {
         alert("🎉 太棒了！所有暫存資料已全數上傳成功！");
       } else {
-        alert(`已成功上傳 ${successCount} 筆。剩餘 ${offlineQueue.length} 筆傳送失敗，請移至網路良好處再按一次上傳。`);
+        alert(`已成功上傳 ${successCount} 筆。剩餘 ${offlineQueue.length} 筆傳送失敗。`);
       }
+    }
+
+    // 🕒 重新定義歷史紀錄渲染 (確保顏色跟隨狀態變動)
+    function renderHistory() {
+      const listDiv = document.getElementById("history-list");
+      if (localHistory.length === 0) {
+        listDiv.innerHTML = "尚無紀錄";
+        return;
+      }
+      let html = "";
+      localHistory.forEach(record => {
+        let details = record.items.map(i => `${i.drugName}: <span class="qty-highlight">${i.qty}</span>`).join('<br>');
+        let locText = record.loc === "全部品項" ? "" : `- ${record.loc}`;
+        
+        // 🎨 判定顏色：暫存顯示紅色，已上傳顯示綠色
+        let isTemp = (record.note && record.note.includes("暫存"));
+        let noteColor = isTemp ? "#e74c3c" : "#27ae60"; 
+        let noteText = record.note ? `📝 狀態：${record.note}` : "";
+        
+        html += `
+          <div class="history-item">
+            <div class="history-title">${record.time} | ${record.desk} ${locText}</div>
+            <div class="history-details">${details}
+              <div style="color: ${noteColor}; margin-top: 5px; font-weight: bold;">${noteText}</div>
+            </div>
+          </div>`;
+      });
+      listDiv.innerHTML = html;
     }
   </script>
 </body>
