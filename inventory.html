@@ -143,7 +143,7 @@
         case "中山":
           const u = String(unit || "").toUpperCase();
           if (u === "CAP" || u === "TABL") return ["口服"];
-          if (u === "TUBE" || u === "BTL" || u === "SACH") return ["外用"];
+          if (u === "TUBE" || u === "BTL" || u === "PATCH" || u === "SACH") return ["外用"];
           if (u === "AMPU") return ["注射"];
           return ["其他(中山)"];
 
