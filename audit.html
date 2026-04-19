@@ -118,7 +118,7 @@
     });
   }
 
-  // 2. 渲染選定日期的報表
+// 2. 渲染選定日期的報表 (已修復 Invalid Date 問題)
   function renderReport() {
     const selectedDate = document.getElementById('date-select').value;
     const container = document.getElementById('report-container');
@@ -153,8 +153,10 @@
       // 若有紀錄則顯示盤點數值，否則顯示橫槓
       const qty = matchRecord ? `<span class="qty-text">${matchRecord[6]}</span>` : `<span style="color:#cbd5e1; text-align:center; display:block;">-</span>`;
       const expiry = (matchRecord && matchRecord[7]) ? `<span class="expiry-text">${matchRecord[7]}</span>` : `<span style="color:#cbd5e1;">-</span>`;
+      
+      // 💡 修正點：拿掉 new Date().toLocaleTimeString()，直接顯示 matchRecord[0]
       const userInfo = matchRecord 
-        ? `<div class="user-info"><strong>${matchRecord[1]}</strong><br>${new Date(matchRecord[0]).toLocaleTimeString()}</div>` 
+        ? `<div class="user-info"><strong>${matchRecord[1]}</strong><br>${matchRecord[0]}</div>` 
         : `<span style="color:#cbd5e1;">-</span>`;
 
       tbody.innerHTML += `
