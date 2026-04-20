@@ -121,8 +121,12 @@
 
   function renderSubAreas(areaName) {
     updateNav([areaName]);
-    const subs = dashboardData[areaName].subs;
-    let html = `<h3 style="margin-top:0;">${areaName} - 各區進度</h3>`;
+   // 💡 先取出所有小區名稱，並依照字母/中文順序排序
+    const sortedSubNames = Object.keys(areaData.subs).sort((a, b) => a.localeCompare(b, 'zh-TW'));
+
+    // 💡 依照排序後的順序來跑迴圈
+    for (const sub of sortedSubNames) {
+      const subInfo = areaData.subs[sub];
     
     Object.keys(subs).forEach(subName => {
       const data = subs[subName];
