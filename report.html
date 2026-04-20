@@ -119,16 +119,16 @@
     document.getElementById('display-area').innerHTML = html;
   }
 
-  function renderSubAreas(areaName) {
+ function renderSubAreas(areaName) {
     updateNav([areaName]);
-   // 💡 先取出所有小區名稱，並依照字母/中文順序排序
-    const sortedSubNames = Object.keys(areaData.subs).sort((a, b) => a.localeCompare(b, 'zh-TW'));
+    const subs = dashboardData[areaName].subs;
+    let html = `<h3 style="margin-top:0;">${areaName} - 各區進度</h3>`;
 
-    // 💡 依照排序後的順序來跑迴圈
-    for (const sub of sortedSubNames) {
-      const subInfo = areaData.subs[sub];
-    
-    Object.keys(subs).forEach(subName => {
+    // 💡 1. 先取出所有小區名稱，並依照字母/中文順序排序
+    const sortedSubNames = Object.keys(subs).sort((a, b) => a.localeCompare(b, 'zh-TW'));
+
+    // 💡 2. 依照排序後的順序來跑迴圈產出 HTML
+    sortedSubNames.forEach(subName => {
       const data = subs[subName];
       const percent = Math.round((data.counted / data.total) * 100) || 0;
       
@@ -143,6 +143,7 @@
           </div>
         </div>`;
     });
+
     document.getElementById('display-area').innerHTML = html;
   }
 
