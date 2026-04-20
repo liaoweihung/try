@@ -74,23 +74,41 @@
     }
 
     // 取得有任務的日期
-   async function fetchAvailableDates() {
-      // 將 action=getAuditDates 改為 getPendingAuditDates
-      const res = await fetch(GAS_URL + "?action=getPendingAuditDates");
-      const dates = await res.json();
-        
-        select.innerHTML = '<option value="" disabled selected>-- 請選擇任務日期 --</option>';
-        if (dates.length === 0) {
-          select.innerHTML = '<option value="" disabled selected>🎉 目前無待盤點任務</option>';
-        } else {
-          dates.forEach(d => {
-            select.innerHTML += `<option value="${d}">${d}</option>`;
-          });
-        }
-      } catch (e) {
-        select.innerHTML = '<option value="" disabled selected>❌ 載入失敗，請檢查網路</option>';
-      }
+ async function fetchAvailableDates() {
+  const dateSelect = document.getElementById('task-date');
+  dateSelect.innerHTML = '<option value="">連線中...</option>'; // 測試用，確認程式有跑到這
+
+  try {
+    // 發送請求給後台
+    const res = await fetch(GAS_URL + "?action=getPendingAuditDates");
+    const dates = await res.json();
+
+    // 檢查後台是不是回傳了錯誤訊息
+    if (dates.error) {
+      alert("後台回傳錯誤：" + dates.message);
+      dateSelect.innerHTML = '<option value="">讀取失敗</option>';
+      return;
     }
+
+    // 檢查陣列是不是空的
+    if (!Array.isArray(dates) || dates.length === 0) {
+      dateSelect.innerHTML = '<option value="">目前無待盤點任務</option>';
+      return;
+    }
+
+    // 成功！把日期塞進下拉選單
+    dateSelect.innerHTML = '<option value="">請選擇任務日期...</option>';
+    dates.forEach(d => {
+      dateSelect.innerHTML += `<option value="${d}">${d}</option>`;
+    });
+
+  } catch (e) {
+    console.error("前端抓取錯誤:", e);
+    alert("無法載入任務日期，請檢查 F12 控制台錯誤");
+    dateSelect.innerHTML = '<option value="">連線失敗</option>';
+  }
+}
+    
 
     // 載入該日期的任務
     async function loadTasks() {
